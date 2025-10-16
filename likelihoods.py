@@ -15,29 +15,6 @@ def softmax_policy(a, beta):
     return p
 
 
-def calculate_likelihood(data, Q_values, beta, T, actions):
-    """
-    calculate negative likelihood of data under model given optimal Q_values,
-    beta, transitions and actions available
-    """
-    nllkhd = 0
-
-    for i_time in range(len(data)-1):
-
-        partial = 0
-        # enumerate over all posible actions for the observed state
-        for i_a, action in enumerate(actions[data[i_time]]):
-
-            partial += (
-                softmax_policy(Q_values[data[i_time]]
-                               [:, i_time], beta)[action]
-                * T[data[i_time]][action][
-                    data[i_time+1]])
-
-        nllkhd = nllkhd - np.log(partial)
-
-    return nllkhd
-
 # def calculate_likelihood(data, Q_values, beta, T, actions):
 #     """
 #     calculate negative likelihood of data under model given optimal Q_values,
@@ -45,29 +22,53 @@ def calculate_likelihood(data, Q_values, beta, T, actions):
 #     """
 #     nllkhd = 0
 
-#     for i_trial in range(len(data)):
+#     for i_time in range(len(data)-1):
 
-#         for i_time in range(len(data[i_trial])-1):
+#         partial = 0
+#         # enumerate over all posible actions for the observed state
+#         for i_a, action in enumerate(actions[data[i_time]]):
 
-#             partial = 0
-#             # enumerate over all posible actions for the observed state
-#             for i_a, action in enumerate(actions[data[i_trial][i_time]]):
+#             partial += (
+#                 softmax_policy(Q_values[data[i_time]]
+#                                [:, i_time], beta)[action]
+#                 * T[data[i_time]][action][
+#                     data[i_time+1]])
 
-#                 partial += (
-#                     softmax_policy(Q_values[data[i_trial][i_time]]
-#                                    [:, i_time], beta)[action]
-#                     * T[data[i_trial][i_time]][action][
-#                         data[i_trial][i_time+1]])
-
-#             nllkhd = nllkhd - np.log(partial)
+#         nllkhd = nllkhd - np.log(partial)
 
 #     return nllkhd
+
+
+def calculate_likelihood(data, Q_values, beta, T, actions):
+    """
+    calculate negative likelihood of data under model given optimal Q_values,
+    beta, transitions and actions available
+    """
+    nllkhd = 0
+
+    for i_trial in range(len(data)):
+
+        for i_time in range(len(data[i_trial])-1):
+
+            partial = 0
+            # enumerate over all posible actions for the observed state
+            for i_a, action in enumerate(actions[data[i_trial][i_time]]):
+
+                partial += (
+                    softmax_policy(Q_values[data[i_trial][i_time]]
+                                   [:, i_time], beta)[action]
+                    * T[data[i_trial][i_time]][action][
+                        data[i_trial][i_time+1]])
+
+            nllkhd = nllkhd - np.log(partial)
+
+    return nllkhd
 
 
 def calculate_likelihood_interest_rewards(data, Q_values, beta, T, p_stay,
                                           actions, interest_states):
     """
-    calculate likelihood of data under interest reward model given 
+    calculate likelihood of data under interest reward model given
     optimal Q_values, beta, transitions, probability of staying in low and
     high states, and actions available
     """
@@ -405,10 +406,10 @@ def likelihood_no_commitment_model(
 
     # adapt some quantities for llkhd calculating function
     p_stay = np.array([[p_stay_low, 1-p_stay_low],
-                       [1-p_stay_high, p_stay_high]])
+                      [1-p_stay_high, p_stay_high]])
 
     Q_values_unstacked = np.array([Q_values[:int(states_no/2)],
-                                   Q_values[int(states_no/2):]])
+                                  Q_values[int(states_no/2):]])
 
     nllkhd = calculate_likelihood_interest_rewards(
         data, Q_values_unstacked, beta, T_partial, p_stay, actions_base,
@@ -423,9 +424,9 @@ def maximum_likelihood_estimate_basic(states, actions, horizon, reward_thr,
                                       true_params=None, initial_real=0,
                                       verbose=0):
     """
-    maximise likelihood of data under basic model parameters using 
+    maximise likelihood of data under basic model parameters using
     scipy.optimize
-    initial_real: whether to include true parameter as an initial point in 
+    initial_real: whether to include true parameter as an initial point in
     optimisation procedure
     verbose: whether to print current estimate and likelihood
     """
@@ -492,9 +493,9 @@ def maximum_likelihood_estimate_efficacy_gap(
         states, actions, horizon, reward_thr, reward_extra, reward_shirk, beta,
         thr, states_no, data, true_params=None, initial_real=0, verbose=0):
     """
-    maximise likelihood of data under efficacy gap model parameters using 
+    maximise likelihood of data under efficacy gap model parameters using
     scipy.optimize
-    initial_real: whether to include true parameter as an initial point in 
+    initial_real: whether to include true parameter as an initial point in
     optimisation procedure
     verbose: whether to print current estimate and likelihood
     """
@@ -560,9 +561,9 @@ def maximum_likelihood_estimate_convex_concave(
         beta, thr, states_no, data, true_params=None, initial_real=0,
         verbose=0):
     """
-    maximise likelihood of data under conv concave model parameters using 
+    maximise likelihood of data under conv concave model parameters using
     scipy.optimize
-    initial_real: whether to include true parameter as an initial point in 
+    initial_real: whether to include true parameter as an initial point in
     optimisation procedure
     verbose: whether to print current estimate and likelihood
     """
@@ -627,9 +628,9 @@ def maximum_likelihood_estimate_immediate_basic(
         beta, thr, states_no, data, true_params=None, initial_real=0,
         verbose=0):
     """
-    maximise likelihood of data under  immediate basic model parameters using 
+    maximise likelihood of data under  immediate basic model parameters using
     scipy.optimize
-    initial_real: whether to include true parameter as an initial point in 
+    initial_real: whether to include true parameter as an initial point in
     optimisation procedure
     verbose: whether to print current estimate and likelihood
     """
@@ -694,9 +695,9 @@ def maximum_likelihood_estimate_diff_discounts(
         reward_shirk, beta, thr, states_no, data, true_params=None,
         initial_real=0, verbose=0):
     """
-    maximise likelihood of data under diff-disc model parameters using 
+    maximise likelihood of data under diff-disc model parameters using
     scipy.optimize
-    initial_real: whether to include true parameter as an initial point in 
+    initial_real: whether to include true parameter as an initial point in
     optimisation procedure
     verbose: whether to print current estimate and likelihood
     """
@@ -765,9 +766,9 @@ def maximum_likelihood_estimate_no_commitment(
         reward_extra, reward_shirk, beta, p_stay_low, p_stay_high, thr,
         states_no, data, true_params=None, initial_real=0, verbose=0):
     """
-    maximise likelihood of data under bno commit model parameters using 
+    maximise likelihood of data under bno commit model parameters using
     scipy.optimize
-    initial_real: whether to include true parameter as an initial point in 
+    initial_real: whether to include true parameter as an initial point in
     optimisation procedure
     verbose: whether to print current estimate and likelihood
     """
