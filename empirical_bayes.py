@@ -205,13 +205,12 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
 data = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-    constants.BETA, 0.8, 0.9, -0.2, 5, constants.THR, constants.STATES_NO)
+    constants.BETA, 0.8, 0.9, -0.2, 1, constants.THR, constants.STATES_NO)
 
 fit = likelihoods.maximum_likelihood_estimate_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-    constants.BETA, constants.THR, constants.STATES_NO, data,
-    true_params=None, initial_real=0, verbose=0)
+    constants.BETA, constants.THR, constants.STATES_NO, data)
 
 
 # %%
