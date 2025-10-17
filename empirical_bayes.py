@@ -5,8 +5,6 @@ import likelihoods
 import constants
 import gen_data
 from tqdm import tqdm
-import task_structure
-from functools import partial
 
 # %%
 
@@ -36,16 +34,7 @@ def get_param_ranges(model_name):
 
 
 def compute_log_likelihood(params, data, model_name):
-
-    # nllkhd_funcs = {
-    #     'basic': likelihoods.calculate_likelihood_basic,
-    #     'efficacy_gap': likelihoods.calculate_likelihood_efficacy_gap,
-    #     'convex_concave': likelihoods.calculate_likelihood_convex_concave,
-    #     'immediate_basic': likelihoods.calculate_likelihood_immediate_basic,
-    #     'diff_discounts': likelihoods.calculate_likelihood_diff_discounts,
-    #     'no_commitment': likelihoods.calculate_likelihood_no_commitment
-    # }
-    # nllkhd = nllkhd_funcs[model_name](params, data)
+    """Compute the log likelihood for a given model and data."""
 
     if model_name == 'basic':
         nllkhd = likelihoods.likelihood_basic_model(
@@ -55,6 +44,18 @@ def compute_log_likelihood(params, data, model_name):
             constants.STATES_NO, data)
 
     return nllkhd
+
+
+def sample_initial_params(model_name, num_samples=1):
+    """Sample initial parameters for MAP estimation."""
+
+    if model_name == 'basic':
+        discount_factor = np.random.uniform(0, 1)
+        efficacy = np.random.uniform(0, 1)
+        effort_work = -1 * np.random.exponential(0.5)
+        pars = [discount_factor, efficacy, effort_work]
+
+    return pars
 
 
 def Hess_diag(fun, x, dx=1e-4):
@@ -85,7 +86,32 @@ def trans_to_bounded(pars, param_ranges):
     return bounded_pars
 
 
-def MAP(data_participant, pop_means, pop_vars, model_name):
+def trans_to_unbounded(pars_bounded, param_ranges):
+    """Transform bounded parameters back to the unconstrained space."""
+    unbounded_pars = np.zeros_like(pars_bounded)
+    for i, (low, high) in enumerate(param_ranges):
+        x = pars_bounded[i]
+        if low is None and high is None:
+            unbounded_pars[i] = x
+        elif low is None and high == 0:
+            # forward: bounded = high - exp(par)
+            # inverse: par = log(high - bounded)  (bounded < high)
+            unbounded_pars[i] = np.log(high - x)
+        elif low == 0 and high is None:
+            # forward: bounded = low + exp(par)
+            # inverse: par = log(bounded - low)
+            unbounded_pars[i] = np.log(x - low)
+        else:
+            # forward: bounded = low + (high - low)/(1 + exp(-par))
+            # inverse: par = logit((bounded - low)/(high - low))
+            ratio = (x - low) / (high - low)
+            # clip to avoid log(0)
+            ratio = np.clip(ratio, 1e-9, 1 - 1e-9)
+            unbounded_pars[i] = np.log(ratio / (1 - ratio))
+    return unbounded_pars
+
+
+def MAP(data_participant, pop_means, pop_vars, model_name, iters=5):
     """
     Maximum a posteriori (MAP) estimation for a single participant.
 
@@ -104,33 +130,37 @@ def MAP(data_participant, pop_means, pop_vars, model_name):
         A dictionary containing the estimated parameters and diagnostics.
     """
 
-    n_params = get_num_params(model_name)
     param_ranges = get_param_ranges(model_name)
-
-    # initial guess
-    x0 = pop_means
-    # bounds
-    bounds = param_ranges
 
     # negative log posterior
     def neg_log_post(pars):
 
-        pars_bounded = trans_to_bounded(pars, param_ranges)
-        log_lik = compute_log_likelihood(
-            pars_bounded, data_participant, model_name)
-        log_prior = - (len(pars) / 2.) * np.log(2 * np.pi) - np.sum(np.log(pop_vars)) \
-            / 2. - sum((pars - pop_means) ** 2. / (2 * pop_vars))
+        log_lik = compute_log_likelihood(pars, data_participant, model_name)
+        pars_unbounded = trans_to_unbounded(pars, param_ranges)
+        log_prior = - (len(pars) / 2.) * np.log(2 * np.pi) - np.sum(
+            np.log(pop_vars)) / 2. - sum((pars_unbounded - pop_means) ** 2. / (
+                2 * pop_vars))
 
         return (log_lik - log_prior)
 
     # optimization
-    res = minimize(neg_log_post, x0, method='L-BFGS-B', bounds=bounds)
+    for iter in range(iters):
+        post = np.inf
+        pars = sample_initial_params(model_name)
+        res = minimize(neg_log_post, pars, bounds=param_ranges)
+        if res.fun < post:
+            post = res.fun
+            final_res = res
 
     # compute hessian at the optimum
-    diag_hess = Hess_diag(neg_log_post, res['x'])
+    diag_hess = Hess_diag(neg_log_post, final_res.x)
+    par_u = trans_to_unbounded(final_res.x, param_ranges)
 
-    fit_participant = {'par_u': res.x, 'diag_hess': diag_hess,
-                       'log_post': -res.fun, 'success': res.success}
+    fit_participant = {'par_b': final_res.x,  # bounded params
+                       'par_u': par_u,  # unbounded params
+                       'diag_hess': diag_hess,
+                       'neg_log_post': final_res.fun,
+                       'success': final_res.success}
 
     return fit_participant
 
@@ -155,7 +185,6 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
     """
 
     n_params = get_num_params(model_name)
-    param_ranges = get_param_ranges(model_name)
 
     # initialise prior
     pop_means = np.random.randn(n_params)  # or np.zeros(n_params)
@@ -177,10 +206,11 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
                            for fit_participant in fit_participants])
         diag_hess = np.array([fit_participant['diag_hess']
                               for fit_participant in fit_participants])
+
         new_pop_means = np.mean(pars_U, axis=0)
-        print(diag_hess)
         new_pop_vars = np.mean(pars_U**2.+1./diag_hess,
                                axis=0)-new_pop_means**2.
+        print(np.abs(new_pop_means-pop_means), np.abs(new_pop_vars-pop_vars))
         # check convergence
         if np.max(np.abs(new_pop_means-pop_means)) < tol and np.max(
                 np.abs(new_pop_vars-pop_vars)) < tol:
@@ -203,31 +233,13 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
 
 
 # %%
-data = gen_data.gen_data_basic(
-    constants.STATES, constants.ACTIONS,  constants.HORIZON,
-    constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-    constants.BETA, 0.8, 0.9, -0.2, 1, constants.THR, constants.STATES_NO)
-
-fit = likelihoods.maximum_likelihood_estimate_basic(
-    constants.STATES, constants.ACTIONS,  constants.HORIZON,
-    constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-    constants.BETA, constants.THR, constants.STATES_NO, data)
-
-
-# %%
-
 
 data = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
     constants.BETA, 0.8, 0.9, -0.2, 5, constants.THR, constants.STATES_NO)
 
-fit = likelihoods.likelihood_basic_model(
-    [0.8, 0.9, -0.2], constants.STATES, constants.ACTIONS, constants.HORIZON,
-    constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-    constants.BETA, constants.THR, constants.STATES_NO, data)
-
-fit_pop = em(data, num_participants=5, model_name='basic', max_iter=3)
+fit_pop = em(data, num_participants=5, model_name='basic', max_iter=20)
 
 print(fit_pop)
 
