@@ -46,19 +46,23 @@ def calculate_likelihood(data, Q_values, beta, T, actions):
     """
     nllkhd = 0
 
-    for i_trial in range(len(data)):
+    if isinstance(data[0], (int, np.integer)):
+        trajectories = [data]
+    else:
+        trajectories = data
 
-        for i_time in range(len(data[i_trial])-1):
+    for traj in trajectories:
+
+        for t in range(len(traj)-1):
 
             partial = 0
             # enumerate over all posible actions for the observed state
-            for i_a, action in enumerate(actions[data[i_trial][i_time]]):
+            for i_a, action in enumerate(actions[traj[t]]):
 
                 partial += (
-                    softmax_policy(Q_values[data[i_trial][i_time]]
-                                   [:, i_time], beta)[action]
-                    * T[data[i_trial][i_time]][action][
-                        data[i_trial][i_time+1]])
+                    softmax_policy(Q_values[traj[t]]
+                                   [:, t], beta)[action]
+                    * T[traj[t]][action][traj[t+1]])
 
             nllkhd = nllkhd - np.log(partial)
 
