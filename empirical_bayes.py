@@ -6,6 +6,7 @@ import constants
 import gen_data
 from tqdm import tqdm
 import task_structure
+from functools import partial
 
 # %%
 
@@ -34,7 +35,7 @@ def get_param_ranges(model_name):
     return param_ranges_dict[model_name]
 
 
-def compute_log_likelihood(data, params, model_name):
+def compute_log_likelihood(params, data, model_name):
 
     # nllkhd_funcs = {
     #     'basic': likelihoods.calculate_likelihood_basic,
@@ -75,9 +76,9 @@ def trans_to_bounded(pars, param_ranges):
     for i, (low, high) in enumerate(param_ranges):
         if low is None and high is None:
             bounded_pars[i] = pars[i]
-        elif low is None:
-            bounded_pars[i] = high - np.exp(-pars[i])
-        elif high is None:
+        elif low is None and high == 0:
+            bounded_pars[i] = high - np.exp(pars[i])
+        elif low == 0 and high is None:
             bounded_pars[i] = low + np.exp(pars[i])
         else:
             bounded_pars[i] = low + (high - low) / (1 + np.exp(-pars[i]))
@@ -116,7 +117,7 @@ def MAP(data_participant, pop_means, pop_vars, model_name):
 
         pars_bounded = trans_to_bounded(pars, param_ranges)
         log_lik = compute_log_likelihood(
-            data_participant, pars_bounded, model_name)
+            pars_bounded, data_participant, model_name)
         log_prior = - (len(pars) / 2.) * np.log(2 * np.pi) - np.sum(np.log(pop_vars)) \
             / 2. - sum((pars - pop_means) ** 2. / (2 * pop_vars))
 
@@ -230,3 +231,5 @@ fit = likelihoods.likelihood_basic_model(
 fit_pop = em(data, num_participants=5, model_name='basic', max_iter=3)
 
 print(fit_pop)
+
+# %%
