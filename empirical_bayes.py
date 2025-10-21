@@ -5,6 +5,7 @@ import likelihoods
 import constants
 import gen_data
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 # %%
 
@@ -111,7 +112,8 @@ def trans_to_unbounded(pars_bounded, param_ranges):
     return unbounded_pars
 
 
-def MAP(data_participant, pop_means, pop_vars, model_name, iters=5):
+def MAP(data_participant, model_name, pop_means=None, pop_vars=None, iters=5,
+        only_mle=False):
     """
     Maximum a posteriori (MAP) estimation for a single participant.
 
@@ -136,29 +138,37 @@ def MAP(data_participant, pop_means, pop_vars, model_name, iters=5):
     def neg_log_post(pars):
 
         log_lik = compute_log_likelihood(pars, data_participant, model_name)
-        pars_unbounded = trans_to_unbounded(pars, param_ranges)
-        log_prior = - (len(pars) / 2.) * np.log(2 * np.pi) - np.sum(
-            np.log(pop_vars)) / 2. - sum((pars_unbounded - pop_means) ** 2. / (
-                2 * pop_vars))
-
-        return (log_lik - log_prior)
+        if only_mle:
+            return log_lik
+        else:
+            pars_unbounded = trans_to_unbounded(pars, param_ranges)
+            log_prior = - (len(pars) / 2.) * np.log(2 * np.pi) - np.sum(
+                np.log(pop_vars)) / 2. - sum((pars_unbounded - pop_means)
+                                             ** 2. / (2 * pop_vars))
+            return (log_lik - log_prior)
 
     # optimization
     for iter in range(iters):
-        post = np.inf
         pars = sample_initial_params(model_name)
+        valid_fit_found = False
+        post = np.inf
         res = minimize(neg_log_post, pars, bounds=param_ranges)
+        diag_hess = Hess_diag(neg_log_post, res.x)
+        if min(diag_hess) > 0:
+            valid_fit_found = True
+        if not valid_fit_found:
+            diag_hess[diag_hess < 0] = 1/6.25  # prior variance
         if res.fun < post:
             post = res.fun
             final_res = res
+            diag_hess_final = diag_hess
 
     # compute hessian at the optimum
-    diag_hess = Hess_diag(neg_log_post, final_res.x)
     par_u = trans_to_unbounded(final_res.x, param_ranges)
 
     fit_participant = {'par_b': final_res.x,  # bounded params
                        'par_u': par_u,  # unbounded params
-                       'diag_hess': diag_hess,
+                       'diag_hess': diag_hess_final,
                        'neg_log_post': final_res.fun,
                        'success': final_res.success}
 
@@ -185,10 +195,12 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
     """
 
     n_params = get_num_params(model_name)
+    param_ranges = get_param_ranges(model_name)
 
     # initialise prior
     pop_means = np.random.randn(n_params)  # or np.zeros(n_params)
     pop_vars = np.ones(n_params) * 6.25
+    total_llkhd = 0
 
     # EM algorithm
 
@@ -198,7 +210,7 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
 
         for i in range(num_participants):
 
-            fit_participant = MAP(data[i], pop_means, pop_vars, model_name)
+            fit_participant = MAP(data[i], model_name, pop_means, pop_vars)
             fit_participants.append(fit_participant)
 
         # M-step
@@ -210,7 +222,12 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
         new_pop_means = np.mean(pars_U, axis=0)
         new_pop_vars = np.mean(pars_U**2.+1./diag_hess,
                                axis=0)-new_pop_means**2.
+        new_total_llkhd = compute_log_likelihood(
+            trans_to_bounded(new_pop_means, param_ranges), data, model_name)
+
         print(np.abs(new_pop_means-pop_means), np.abs(new_pop_vars-pop_vars))
+        print(f'diff in llkhd: {new_total_llkhd - total_llkhd}')
+
         # check convergence
         if np.max(np.abs(new_pop_means-pop_means)) < tol and np.max(
                 np.abs(new_pop_vars-pop_vars)) < tol:
@@ -218,13 +235,12 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
             print(f'Converged in {iteration} iterations.')
             pop_means = new_pop_means
             pop_vars = new_pop_vars
+            total_llkhd = new_total_llkhd
             break
 
-        pop_means = new_pop_means.copy()
-        pop_vars = new_pop_vars.copy()
-
-    # bic = compute_bic(data, fit_participants, pop_means,
-    #                   pop_vars, model_name)
+        pop_means = new_pop_means
+        pop_vars = new_pop_vars
+        total_llkhd = new_total_llkhd
 
     fit_pop = {'pop_means': pop_means, 'pop_vars': pop_vars,
                'fit_participants': fit_participants, 'model_name': model_name}
@@ -233,14 +249,31 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
 
 
 # %%
+if __name__ == "__main__":
+    # %% fit models using Emirical Bayes
 
-data = gen_data.gen_data_basic(
-    constants.STATES, constants.ACTIONS,  constants.HORIZON,
-    constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-    constants.BETA, 0.8, 0.9, -0.2, 5, constants.THR, constants.STATES_NO)
+    np.random.seed(0)
 
-fit_pop = em(data, num_participants=5, model_name='basic', max_iter=20)
+    n_participants = 5
+    data = gen_data.gen_data_basic(
+        constants.STATES, constants.ACTIONS,  constants.HORIZON,
+        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
+        constants.BETA, 0.8, 0.6, -0.2, n_participants, constants.THR,
+        constants.STATES_NO)
 
-print(fit_pop)
+    for i in range(n_participants):
+        plt.plot(data[i])
+    plt.show()
+
+    fit_pop = em(data, num_participants=n_participants, model_name='basic',
+                 max_iter=10, tol=0.001)
+
+    print(fit_pop)
+
+# %% run MLE for individuals
+fit_participants = []
+for i in tqdm(range(n_participants)):
+    fit_participant = MAP(data[i], model_name='basic', only_mle=True)
+    fit_participants.append(fit_participant)
 
 # %%
