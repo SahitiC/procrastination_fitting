@@ -6,7 +6,6 @@ log likelihood (minimise negative log likelihood) to find best fitting params
 import task_structure
 import mdp_algms
 import numpy as np
-from scipy.optimize import minimize
 
 
 def softmax_policy(a, beta):
