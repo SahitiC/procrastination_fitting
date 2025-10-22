@@ -1,68 +1,12 @@
-"""
-fit models to data, cluster-wise
-"""
-
+# %% imports
 import numpy as np
-import likelihoods
-import concurrent.futures
-import constants
 import pandas as pd
 import ast
-import random
+from concurrent.futures import ProcessPoolExecutor
+from tqdm import tqdm
+import empirical_bayes
 
 # %% functions
-
-
-def model_fit(data_to_fit):
-    """
-    fit each model to inputted data using maximum likelihood estimation
-    store likelihood and fitted parameters
-    """
-
-    # fit each model to data and recover params
-    result_basic = likelihoods.maximum_likelihood_estimate_basic(
-        constants.STATES, constants.ACTIONS, constants.HORIZON,
-        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-        constants.BETA, constants.THR, constants.STATES_NO, data_to_fit)
-
-    result_efficacy_gap = likelihoods.maximum_likelihood_estimate_efficacy_gap(
-        constants.STATES, constants.ACTIONS, constants.HORIZON,
-        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-        constants.BETA, constants.THR, constants.STATES_NO, data_to_fit)
-
-    result_conv_conc = likelihoods.maximum_likelihood_estimate_convex_concave(
-        constants.STATES, constants.ACTIONS, constants.HORIZON,
-        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-        constants.BETA, constants.THR, constants.STATES_NO, data_to_fit)
-
-    result_imm_basic = likelihoods.maximum_likelihood_estimate_immediate_basic(
-        constants.STATES, constants.ACTIONS, constants.HORIZON,
-        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-        constants.BETA, constants.THR, constants.STATES_NO, data_to_fit)
-
-    result_diff_disc = likelihoods.maximum_likelihood_estimate_diff_discounts(
-        constants.STATES, constants.ACTIONS, constants.HORIZON,
-        constants.REWARD_THR_DIFF_DISCOUNTS,
-        constants.REWARD_EXTRA_DIFF_DISCOUNTS, constants.REWARD_SHIRK,
-        constants.BETA_DIFF_DISCOUNTS, constants.THR, constants.STATES_NO,
-        data_to_fit)
-
-    result_no_commit = likelihoods.maximum_likelihood_estimate_no_commitment(
-        constants.STATES_NO_COMMIT, constants.INTEREST_STATES,
-        constants.ACTIONS_BASE, constants.HORIZON, constants.REWARD_THR,
-        constants.REWARD_EXTRA, constants.REWARD_SHIRK, constants.BETA,
-        constants.P_STAY_LOW, constants.P_STAY_HIGH, constants.THR,
-        constants.STATES_NO_NO_COMMIT, data_to_fit)
-
-    # nllkhds under each model
-    nllkhds = np.array([result_basic.fun, result_efficacy_gap.fun,
-                        result_conv_conc.fun, result_imm_basic.fun,
-                        result_diff_disc.fun, result_no_commit.fun])
-    params = [result_basic.x, result_efficacy_gap.x,
-              result_conv_conc.x, result_imm_basic.x,
-              result_diff_disc.x, result_no_commit.x]
-
-    return [nllkhds, params]
 
 
 def convert_string_to_list(row):
@@ -73,6 +17,7 @@ def convert_string_to_list(row):
     return np.array([0]+ast.literal_eval(
         row['cumulative progress weeks'])) * 2
 
+
 # %% fit models
 
 if __name__ == "__main__":
@@ -81,30 +26,38 @@ if __name__ == "__main__":
 
     # import clustered data
     data_relevant = pd.read_csv(
-        'data/data_clustered.csv', index_col=False)
+        'data_preprocessed.csv', index_col=False)
 
     # convert into list from strings
-    # multiply by two to convert hours to units        
+    # multiply by two to convert hours to units
     units = list(data_relevant.apply(convert_string_to_list, axis=1))
 
     # list of trajectory sets corresponding to each cluster
     # each model is fit to each of these clusters
     data_to_fit_lst = []
-    for label in (np.unique(data_relevant['labels'])):
-        data_cluster = []
-        for i in range(len(units)):
-            # only consider trajectories where max 22 units were completed
-            if units[i][-1] <= 22:
-                if data_relevant['labels'][i] == label:
-                    data_cluster.append(np.array(units[i], dtype=int))
-        data_to_fit_lst.append(data_cluster)
+    for i in range(len(units)):
+        data_to_fit_lst.append(np.array(units[i], dtype=int))
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        result_lst = executor.map(model_fit, data_to_fit_lst)
+    fit_pop_result = empirical_bayes.em(data_to_fit_lst, model_name='basic',
+                                        max_iter=20, tol=1e-3,
+                                        parallelise=True)
 
-    result_lst = [*result_lst]
-    result = np.array(result_lst, dtype=object)
-    np.save('data/result_fit.npy', result)
+    fit_pop_mle = empirical_bayes.MAP(
+        data_to_fit_lst, model_name='basic', iters=50, only_mle=True)
+
+    def fit_single_mle(datum):
+        return empirical_bayes.MAP(datum, model_name='basic',
+                                   iters=20, only_mle=True)
+
+    with ProcessPoolExecutor() as executor:
+        fit_participants = list(tqdm(
+            executor.map(fit_single_mle, data_to_fit_lst)))
+
+    np.save("fit_pop_em.npy", fit_pop_result, allow_pickle=True)
+
+    np.save("fit_individual_mle.npy", fit_participants, allow_pickle=True)
+
+    np.save("fit_pop_mle.npy", fit_pop_mle, allow_pickle=True)
 
     data_to_fit_lst = np.array(data_to_fit_lst, dtype=object)
-    np.save('data/data_to_fit_lst.npy', data_to_fit_lst)
+    np.save('data_to_fit_lst.npy', data_to_fit_lst)
