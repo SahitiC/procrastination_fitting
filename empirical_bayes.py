@@ -5,7 +5,7 @@ import likelihoods
 import constants
 import gen_data
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+from concurrent.futures import ProcessPoolExecutor
 
 # %%
 
@@ -53,6 +53,18 @@ def sample_initial_params(model_name, num_samples=1):
     if model_name == 'basic':
         discount_factor = np.random.uniform(0, 1)
         efficacy = np.random.uniform(0, 1)
+        effort_work = -1 * np.random.exponential(0.5)
+        pars = [discount_factor, efficacy, effort_work]
+
+    return pars
+
+
+def sample_params(model_name, num_samples=1):
+    """Sample parameters to generate data."""
+
+    if model_name == 'basic':
+        discount_factor = np.random.uniform(0.2, 1)
+        efficacy = np.random.uniform(0.35, 1)
         effort_work = -1 * np.random.exponential(0.5)
         pars = [discount_factor, efficacy, effort_work]
 
@@ -112,8 +124,8 @@ def trans_to_unbounded(pars_bounded, param_ranges):
     return unbounded_pars
 
 
-def MAP(data_participant, model_name, pop_means=None, pop_vars=None, iters=5,
-        only_mle=False):
+def MAP(data_participant, model_name, pop_means=None,
+        pop_vars=None, iters=5, only_mle=False, initial_guess=None):
     """
     Maximum a posteriori (MAP) estimation for a single participant.
 
@@ -148,10 +160,29 @@ def MAP(data_participant, model_name, pop_means=None, pop_vars=None, iters=5,
             return (log_lik - log_prior)
 
     # optimization
+    post = np.inf
+
+    # with initial guess
+    if initial_guess is not None:
+        pars = initial_guess
+        valid_fit_found = False
+        res = minimize(neg_log_post, pars, bounds=param_ranges)
+        diag_hess = Hess_diag(neg_log_post, res.x)
+        if min(diag_hess) > 0:
+            valid_fit_found = True
+        if not valid_fit_found:
+            diag_hess[diag_hess < 0] = 1/6.25  # prior variance
+        if res.fun < post:
+            post = res.fun
+            final_res = res
+            diag_hess_final = diag_hess
+        else:
+            print(res.fun, res.x)
+
+    # iterate with random initialisations
     for iter in range(iters):
         pars = sample_initial_params(model_name)
         valid_fit_found = False
-        post = np.inf
         res = minimize(neg_log_post, pars, bounds=param_ranges)
         diag_hess = Hess_diag(neg_log_post, res.x)
         if min(diag_hess) > 0:
@@ -175,7 +206,13 @@ def MAP(data_participant, model_name, pop_means=None, pop_vars=None, iters=5,
     return fit_participant
 
 
-def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
+def fit_single(args):
+    datum, model_name, pop_means, pop_vars, initial_guess = args
+    return MAP(datum, model_name, pop_means, pop_vars,
+               initial_guess=initial_guess)
+
+
+def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
     """
     Run the EM algorithm for a given model and data.
 
@@ -183,10 +220,10 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
     - data: array-like, shape (n_participants,)
         The input data for the EM algorithm.
     - model_name: str
-        The name of the model to use ('gaussian', 'bernoulli', etc.).
-    - max_iter: int, optional (default=100)
+        The name of the model to use ('basic', 'efficacy_gap', etc.)
+    - max_iter: int, optional (default=20)
         The maximum number of iterations to run the EM algorithm.
-    - tol: float, optional (default=1e-6)
+    - tol: float, optional (default=1e-3)
         The tolerance for convergence.
 
     Returns:
@@ -202,16 +239,33 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
     pop_vars = np.ones(n_params) * 6.25
     total_llkhd = 0
 
+    num_participants = len(data)
+
     # EM algorithm
 
     for iteration in tqdm(range(max_iter)):
+
         # E-step
         fit_participants = []
 
-        for i in range(num_participants):
-
-            fit_participant = MAP(data[i], model_name, pop_means, pop_vars)
-            fit_participants.append(fit_participant)
+        if parallelise:
+            args_list = []  # store args
+            for i in range(num_participants):
+                # initial guess from previous iteration
+                initial_guess = (old_participant_fits[i]
+                                 if iteration > 0 else None)
+                args_list.append(
+                    (data[i], model_name, pop_means, pop_vars, initial_guess))
+            with ProcessPoolExecutor() as executor:
+                fit_participants = list(executor.map(fit_single, args_list))
+        else:
+            for i in range(num_participants):
+                # initial guess from previous iteration
+                initial_guess = (old_participant_fits[i]
+                                 if iteration > 0 else None)
+                fit_participant = MAP(data[i], model_name,  pop_means,
+                                      pop_vars, initial_guess=initial_guess)
+                fit_participants.append(fit_participant)
 
         # M-step
         pars_U = np.array([fit_participant['par_u']
@@ -242,6 +296,9 @@ def em(data, num_participants, model_name, max_iter=100, tol=1e-6):
         pop_vars = new_pop_vars
         total_llkhd = new_total_llkhd
 
+        old_participant_fits = [fit_participants[i]['par_b']
+                                for i in range(num_participants)]
+
     fit_pop = {'pop_means': pop_means, 'pop_vars': pop_vars,
                'fit_participants': fit_participants, 'model_name': model_name}
 
@@ -254,26 +311,51 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    n_participants = 5
-    data = gen_data.gen_data_basic(
-        constants.STATES, constants.ACTIONS,  constants.HORIZON,
-        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-        constants.BETA, 0.8, 0.6, -0.2, n_participants, constants.THR,
-        constants.STATES_NO)
-
+    n_participants = 200
+    n_trials = 1
+    paralellise = True
+    data = []
+    input_params = []
     for i in range(n_participants):
-        plt.plot(data[i])
-    plt.show()
+        [discount_factor, efficacy, effort_work] = sample_params(
+            'basic')
+        datum = gen_data.gen_data_basic(
+            constants.STATES, constants.ACTIONS,  constants.HORIZON,
+            constants.REWARD_THR, constants.REWARD_EXTRA,
+            constants.REWARD_SHIRK, constants.BETA, discount_factor, efficacy,
+            effort_work, n_trials, constants.THR, constants.STATES_NO)
+        data.append(datum[0])
+        input_params.append([discount_factor, efficacy, effort_work])
 
-    fit_pop = em(data, num_participants=n_participants, model_name='basic',
-                 max_iter=10, tol=0.001)
-
+    fit_pop = em(data, model_name='basic', max_iter=50, tol=0.001,
+                 parallelise=paralellise)
     print(fit_pop)
+    np.save("recovery_em.npy", fit_pop, allow_pickle=True)
 
-# %% run MLE for individuals
-fit_participants = []
-for i in tqdm(range(n_participants)):
-    fit_participant = MAP(data[i], model_name='basic', only_mle=True)
-    fit_participants.append(fit_participant)
+    data = np.array(data, dtype=object)
+    np.save('input_data_recovery.npy', data)
+    input_params = np.array(input_params, dtype=object)
+    np.save('input_params_recovery.npy', input_params)
 
-# %%
+    # %% run MLE for individuals
+
+    def fit_single_mle(datum):
+        return MAP(datum, model_name='basic', iters=20, only_mle=True)
+    if paralellise:
+        with ProcessPoolExecutor() as executor:
+            fit_participants = list(tqdm(
+                executor.map(fit_single_mle, data)))
+    else:
+        fit_participants = []
+        for i in tqdm(range(n_participants)):
+            fit_participant = MAP(data[i], model_name='basic', iters=20,
+                                  only_mle=True)
+            fit_participants.append(fit_participant)
+
+    print(fit_participants)
+    np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
+
+    # %% run MLE for full data
+    fit_pop_mle = MAP(data, model_name='basic', iters=50, only_mle=True)
+    print(fit_pop_mle)
+    np.save("recovery_group_mle.npy", fit_pop_mle, allow_pickle=True)
