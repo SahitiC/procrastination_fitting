@@ -92,9 +92,17 @@ def trans_to_bounded(pars, param_ranges):
             bounded_pars[i] = pars[i]
         elif low is None and high == 0:
             bounded_pars[i] = high - np.exp(pars[i])
+            # bounded_pars[i] = (-pars[i] - 3.
+            #         if pars[i] > -2.
+            #         else -np.exp(pars[i]+2.))
         elif low == 0 and high is None:
             bounded_pars[i] = low + np.exp(pars[i])
+            # bounded_pars[i] = (pars[i] + 3.
+            #                    if pars[i] > -2.
+            #                    else np.exp(pars[i]+2.))
         else:
+            if pars[i] < -100.:
+                pars[i] = -100.
             bounded_pars[i] = low + (high - low) / (1 + np.exp(-pars[i]))
     return bounded_pars
 
@@ -107,19 +115,15 @@ def trans_to_unbounded(pars_bounded, param_ranges):
         if low is None and high is None:
             unbounded_pars[i] = x
         elif low is None and high == 0:
-            # forward: bounded = high - exp(par)
-            # inverse: par = log(high - bounded)  (bounded < high)
             unbounded_pars[i] = np.log(high - x)
+            # unbounded_pars[i] = (-x - 3. if x < -1. else np.log(-x) - 2.)
         elif low == 0 and high is None:
-            # forward: bounded = low + exp(par)
-            # inverse: par = log(bounded - low)
             unbounded_pars[i] = np.log(x - low)
+            # unbounded_pars[i] = (x - 3. if x > 1. else np.log(x)-2.)
         else:
-            # forward: bounded = low + (high - low)/(1 + exp(-par))
-            # inverse: par = logit((bounded - low)/(high - low))
             ratio = (x - low) / (high - low)
             # clip to avoid log(0)
-            ratio = np.clip(ratio, 1e-9, 1 - 1e-9)
+            # ratio = np.clip(ratio, 1e-9, 1 - 1e-9)
             unbounded_pars[i] = np.log(ratio / (1 - ratio))
     return unbounded_pars
 
@@ -272,10 +276,10 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                            for fit_participant in fit_participants])
         diag_hess = np.array([fit_participant['diag_hess']
                               for fit_participant in fit_participants])
-
         new_pop_means = np.mean(pars_U, axis=0)
         new_pop_vars = np.mean(pars_U**2.+1./diag_hess,
                                axis=0)-new_pop_means**2.
+        new_pop_vars = np.maximum(new_pop_vars, 1.)
         new_total_llkhd = compute_log_likelihood(
             trans_to_bounded(new_pop_means, param_ranges), data, model_name)
 
@@ -311,7 +315,7 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    n_participants = 5
+    n_participants = 40
     n_trials = 1
     paralellise = True
     data = []
