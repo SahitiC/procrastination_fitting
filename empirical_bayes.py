@@ -177,7 +177,7 @@ def MAP(data_participant, model_name, pop_means=None,
             final_res = res
             diag_hess_final = diag_hess
         else:
-            print(res.fun, res.x)
+            print(res.fun, pop_means, pop_vars)
 
     # iterate with random initialisations
     for iter in range(iters):
@@ -235,7 +235,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
     param_ranges = get_param_ranges(model_name)
 
     # initialise prior
-    pop_means = np.random.randn(n_params)  # or np.zeros(n_params)
+    pop_means = np.zeros(n_params)  # or np.random.randn(n_params)
     pop_vars = np.ones(n_params) * 6.25
     total_llkhd = 0
 
@@ -311,7 +311,7 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    n_participants = 200
+    n_participants = 5
     n_trials = 1
     paralellise = True
     data = []
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         data.append(datum[0])
         input_params.append([discount_factor, efficacy, effort_work])
 
-    fit_pop = em(data, model_name='basic', max_iter=50, tol=0.001,
+    fit_pop = em(data, model_name='basic', max_iter=10, tol=0.01,
                  parallelise=paralellise)
     print(fit_pop)
     np.save("recovery_em.npy", fit_pop, allow_pickle=True)
@@ -359,3 +359,5 @@ if __name__ == "__main__":
     fit_pop_mle = MAP(data, model_name='basic', iters=50, only_mle=True)
     print(fit_pop_mle)
     np.save("recovery_group_mle.npy", fit_pop_mle, allow_pickle=True)
+
+# %%

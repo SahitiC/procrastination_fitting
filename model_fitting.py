@@ -39,7 +39,7 @@ if __name__ == "__main__":
         data_to_fit_lst.append(np.array(units[i], dtype=int))
 
     fit_pop_result = empirical_bayes.em(data_to_fit_lst, model_name='basic',
-                                        max_iter=20, tol=1e-3,
+                                        max_iter=50, tol=1e-3,
                                         parallelise=True)
 
     fit_pop_mle = empirical_bayes.MAP(
