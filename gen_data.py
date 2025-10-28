@@ -13,6 +13,31 @@ def softmax_policy(a, beta):
     p = np.exp(beta*c) / np.sum(np.exp(beta*c))
     return p
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def gen_data_rl_basic(n_trials=100, n_actions=2, alpha=0.2, beta=3.0):
+
+    Q = np.zeros(n_actions)
+    actions = np.zeros(n_trials, dtype=int)
+    rewards = np.zeros(n_trials)
+
+    # Fixed reward probabilities (e.g., bandit with 0.7 and 0.3)
+    reward_probs = np.array([0.7, 0.3])
+
+    for t in range(n_trials):
+        # Softmax choice probabilities
+        p = np.exp(beta * Q) / np.sum(np.exp(beta * Q))
+        actions[t] = np.random.choice(n_actions, p=p)
+
+        # Sample reward (1 or 0)
+        rewards[t] = np.random.rand() < reward_probs[actions[t]]
+
+        # RL update
+        Q[actions[t]] += alpha * (rewards[t] - Q[actions[t]])
+
+    return {"actions": actions, "rewards": rewards, "Q": Q}
+
 
 def gen_data_basic(states, actions, horizon, reward_thr, reward_extra,
                    reward_shirk, beta, discount_factor, efficacy, effort_work,
