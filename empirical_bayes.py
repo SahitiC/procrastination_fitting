@@ -57,13 +57,13 @@ def sample_initial_params(model_name, num_samples=1):
     """Sample initial parameters for MAP estimation."""
 
     if model_name == 'rl-basic':
-        alpha_u = np.random.randn()
-        beta_u = np.random.randn()
+        alpha_u = np.random.logistic(0, 1)
+        beta_u = np.random.logistic(0, 1)
         pars = [alpha_u, beta_u]
 
     elif model_name == 'basic':
-        discount_factor = np.random.randn()
-        efficacy = np.random.randn()
+        discount_factor = np.random.logistic(0, 1)
+        efficacy = np.random.logistic(0, 1)
         effort_work = np.random.normal(loc=-1.2, scale=1.2)
         pars = [discount_factor, efficacy, effort_work]
 
@@ -80,7 +80,7 @@ def sample_params(model_name, num_samples=1):
     """Sample parameters to generate data."""
 
     if model_name == 'rl-basic':
-        alpha_u = np.random.uniform(0.2, 1)
+        alpha_u = np.random.uniform(0.2, 0.9)
         beta_u = np.random.uniform(0.5, 5)
         pars = [alpha_u, beta_u]
 
@@ -114,14 +114,8 @@ def trans_to_bounded(pars, param_ranges):
             bounded_pars[i] = pars[i]
         elif low is None and high == 0:
             bounded_pars[i] = high - np.exp(pars[i])
-            # bounded_pars[i] = (-pars[i] - 3.
-            #         if pars[i] > -2.
-            #         else -np.exp(pars[i]+2.))
         elif low == 0 and high is None:
             bounded_pars[i] = low + np.exp(pars[i])
-            # bounded_pars[i] = (pars[i] + 3.
-            #                    if pars[i] > -2.
-            #                    else np.exp(pars[i]+2.))
         else:
             if pars[i] < -100.:
                 pars[i] = -100.
@@ -138,14 +132,12 @@ def trans_to_unbounded(pars_bounded, param_ranges):
             unbounded_pars[i] = x
         elif low is None and high == 0:
             unbounded_pars[i] = np.log(high - x)
-            # unbounded_pars[i] = (-x - 3. if x < -1. else np.log(-x) - 2.)
         elif low == 0 and high is None:
             unbounded_pars[i] = np.log(x - low)
-            # unbounded_pars[i] = (x - 3. if x > 1. else np.log(x)-2.)
         else:
             ratio = (x - low) / (high - low)
             # clip to avoid log(0)
-            # ratio = np.clip(ratio, 1e-9, 1 - 1e-9)
+            ratio = np.clip(ratio, 1e-9, 1 - 1e-9)
             unbounded_pars[i] = np.log(ratio / (1 - ratio))
     return unbounded_pars
 
@@ -177,6 +169,7 @@ def MAP(data_participant, model_name, pop_means=None,
 
         pars_bounded = trans_to_bounded(pars, param_ranges)
         log_lik = compute_log_likelihood(pars_bounded, data_participant, model_name)
+
         if only_mle:
             return log_lik
         else:
@@ -192,7 +185,7 @@ def MAP(data_participant, model_name, pop_means=None,
     if initial_guess is not None:
         pars = initial_guess
         valid_fit_found = False
-        res = minimize(neg_log_post, pars, bounds=param_ranges)
+        res = minimize(neg_log_post, pars) 
         diag_hess = Hess_diag(neg_log_post, res.x)
         if min(diag_hess) > 0:
             valid_fit_found = True
@@ -208,9 +201,8 @@ def MAP(data_participant, model_name, pop_means=None,
     # iterate with random initialisations
     for iter in range(iters):
         pars = sample_initial_params(model_name)
-
         valid_fit_found = False
-        res = minimize(neg_log_post, pars, bounds=param_ranges)
+        res = minimize(neg_log_post, pars) 
         diag_hess = Hess_diag(neg_log_post, res.x)
         if min(diag_hess) > 0:
             valid_fit_found = True
@@ -221,7 +213,6 @@ def MAP(data_participant, model_name, pop_means=None,
             final_res = res
             diag_hess_final = diag_hess
 
-    # compute hessian at the optimum
     par_b = trans_to_bounded(final_res.x, param_ranges)
 
     fit_participant = {'par_b': par_b,  # bounded params
@@ -263,7 +254,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
 
     # initialise prior
     pop_means = np.zeros(n_params)  # or np.random.randn(n_params)
-    pop_vars = np.ones(n_params) * 6.25
+    pop_vars = np.ones(n_params) * 100
     total_llkhd = 0
 
     num_participants = len(data)
@@ -290,7 +281,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                 # initial guess from previous iteration
                 initial_guess = (old_participant_fits[i]
                                  if iteration > 0 else None)
-                fit_participant = MAP(data[i], model_name,  pop_means,
+                fit_participant = MAP(data[i], model_name, pop_means,
                                       pop_vars, initial_guess=initial_guess)
                 fit_participants.append(fit_participant)
 
@@ -323,7 +314,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
         pop_vars = new_pop_vars
         # total_llkhd = new_total_llkhd
 
-        old_participant_fits = [fit_participants[i]['par_b']
+        old_participant_fits = [fit_participants[i]['par_u']
                                 for i in range(num_participants)]
 
     fit_pop = {'pop_means': pop_means, 'pop_vars': pop_vars,
@@ -339,7 +330,7 @@ if __name__ == "__main__":
     np.random.seed(0)
 
     n_participants = 40
-    n_trials = 5
+    n_trials = 1
     paralellise = True
     data = []
     input_params = []
@@ -353,11 +344,11 @@ if __name__ == "__main__":
             effort_work, n_trials, constants.THR, constants.STATES_NO)
         # alpha, beta = sample_params('rl-basic')
         # datum = gen_data.gen_data_rl_basic(n_trials=50, alpha=alpha, beta=beta)
-        data.append(datum)
         # input_params.append([alpha, beta])
+        data.append(datum)
         input_params.append([discount_factor, efficacy, effort_work])
 
-    fit_pop = em(data, model_name='basic', max_iter=20, tol=0.001,
+    fit_pop = em(data, model_name='basic', max_iter=20, tol=0.01,
                  parallelise=paralellise)
     print(fit_pop)
     # np.save("recovery_em.npy", fit_pop, allow_pickle=True)
@@ -378,7 +369,7 @@ if __name__ == "__main__":
     else:
         fit_participants = []
         for i in tqdm(range(n_participants)):
-            fit_participant = MAP(data[i], model_name='rl-basic', iters=40,
+            fit_participant = MAP(data[i], model_name='basic', iters=5,
                                   only_mle=True)
             fit_participants.append(fit_participant)
 
@@ -386,7 +377,7 @@ if __name__ == "__main__":
     # np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
 
     # %% run MLE for full data
-    fit_pop_mle = MAP(data, model_name='rl-basic', iters=20, only_mle=True)
+    fit_pop_mle = MAP(data, model_name='basic', iters=40, only_mle=True)
     print(fit_pop_mle)
     # np.save("recovery_group_mle.npy", fit_pop_mle, allow_pickle=True)
 

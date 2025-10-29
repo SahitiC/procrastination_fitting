@@ -18,6 +18,7 @@ def sigmoid(x):
 
 def gen_data_rl_basic(n_trials=100, n_actions=2, alpha=0.2, beta=3.0):
 
+
     Q = np.zeros(n_actions)
     actions = np.zeros(n_trials, dtype=int)
     rewards = np.zeros(n_trials)

@@ -124,6 +124,7 @@ def sigmoid(x):
 def likelihood_rl_basic_model(params, data):
 
     alpha, beta = params
+
     actions = data["actions"]
     rewards = data["rewards"]
 
