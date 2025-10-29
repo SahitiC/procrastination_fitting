@@ -168,7 +168,8 @@ def MAP(data_participant, model_name, pop_means=None,
     def neg_log_post(pars):
 
         pars_bounded = trans_to_bounded(pars, param_ranges)
-        log_lik = compute_log_likelihood(pars_bounded, data_participant, model_name)
+        log_lik = compute_log_likelihood(
+            pars_bounded, data_participant, model_name)
 
         if only_mle:
             return log_lik
@@ -185,7 +186,7 @@ def MAP(data_participant, model_name, pop_means=None,
     if initial_guess is not None:
         pars = initial_guess
         valid_fit_found = False
-        res = minimize(neg_log_post, pars) 
+        res = minimize(neg_log_post, pars)
         diag_hess = Hess_diag(neg_log_post, res.x)
         if min(diag_hess) > 0:
             valid_fit_found = True
@@ -202,7 +203,7 @@ def MAP(data_participant, model_name, pop_means=None,
     for iter in range(iters):
         pars = sample_initial_params(model_name)
         valid_fit_found = False
-        res = minimize(neg_log_post, pars) 
+        res = minimize(neg_log_post, pars)
         diag_hess = Hess_diag(neg_log_post, res.x)
         if min(diag_hess) > 0:
             valid_fit_found = True
@@ -265,6 +266,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
 
         # E-step
         fit_participants = []
+        history_total_llkhd = []
 
         if parallelise:
             args_list = []  # store args
@@ -293,12 +295,12 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
         new_pop_means = np.mean(pars_U, axis=0)
         new_pop_vars = np.mean(pars_U**2.+1./diag_hess,
                                axis=0)-new_pop_means**2.
-        # new_pop_vars = np.maximum(new_pop_vars, 1.)
-        # new_total_llkhd = compute_log_likelihood(
-        #     trans_to_bounded(new_pop_means, param_ranges), data, model_name)
+        new_total_llkhd = compute_log_likelihood(
+            trans_to_bounded(new_pop_means, param_ranges), data, model_name)
 
         print(np.abs(new_pop_means-pop_means), np.abs(new_pop_vars-pop_vars))
-        # print(f'diff in llkhd: {new_total_llkhd - total_llkhd}')
+        print(f'diff in llkhd: {new_total_llkhd - total_llkhd}')
+        history_total_llkhd.append(total_llkhd)
 
         # check convergence
         if np.max(np.abs(new_pop_means-pop_means)) < tol and np.max(
@@ -307,18 +309,19 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
             print(f'Converged in {iteration} iterations.')
             pop_means = new_pop_means
             pop_vars = new_pop_vars
-            # total_llkhd = new_total_llkhd
+            total_llkhd = new_total_llkhd
             break
 
         pop_means = new_pop_means
         pop_vars = new_pop_vars
-        # total_llkhd = new_total_llkhd
+        total_llkhd = new_total_llkhd
 
         old_participant_fits = [fit_participants[i]['par_u']
                                 for i in range(num_participants)]
 
     fit_pop = {'pop_means': pop_means, 'pop_vars': pop_vars,
-               'fit_participants': fit_participants, 'model_name': model_name}
+               'fit_participants': fit_participants, 'model_name': model_name,
+               'history_llkhd': history_total_llkhd}
 
     return fit_pop
 
@@ -330,7 +333,7 @@ if __name__ == "__main__":
     np.random.seed(0)
 
     n_participants = 40
-    n_trials = 1
+    n_trials = 5
     paralellise = True
     data = []
     input_params = []
@@ -374,11 +377,11 @@ if __name__ == "__main__":
             fit_participants.append(fit_participant)
 
     print(fit_participants)
-    # np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
+    np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
 
     # %% run MLE for full data
     fit_pop_mle = MAP(data, model_name='basic', iters=40, only_mle=True)
     print(fit_pop_mle)
-    # np.save("recovery_group_mle.npy", fit_pop_mle, allow_pickle=True)
+    np.save("recovery_group_mle.npy", fit_pop_mle, allow_pickle=True)
 
 # %%

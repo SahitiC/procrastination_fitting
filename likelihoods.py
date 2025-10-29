@@ -121,6 +121,7 @@ def calculate_likelihood_interest_rewards(data, Q_values, beta, T, p_stay,
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
+
 def likelihood_rl_basic_model(params, data):
 
     alpha, beta = params
