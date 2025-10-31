@@ -17,7 +17,7 @@ cd ${SCRATCH_DIRECTORY}
 # copy the necessary files to scratch directory
 cp ${SLURM_SUBMIT_DIR}/data_preprocessed.csv ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/model_fitting.py ${SCRATCH_DIRECTORY}
-cp ${SLURM_SUBMIT_DIR}/empirical_bayes.py ${SCRATCH_DIRECTORY}
+cp ${SLURM_SUBMIT_DIR}/mle.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/likelihoods.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/constants.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/gen_data.py ${SCRATCH_DIRECTORY}
