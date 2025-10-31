@@ -4,7 +4,7 @@ import pandas as pd
 import ast
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
-import empirical_bayes
+import mle
 
 # %% functions
 
@@ -38,26 +38,18 @@ if __name__ == "__main__":
     for i in range(len(units)):
         data_to_fit_lst.append(np.array(units[i], dtype=int))
 
-    fit_pop_result = empirical_bayes.em(data_to_fit_lst, model_name='basic',
-                                        max_iter=50, tol=1e-3,
-                                        parallelise=True)
-
-    fit_pop_mle = empirical_bayes.MAP(
-        data_to_fit_lst, model_name='basic', iters=50, only_mle=True)
+    # fit_pop_result = empirical_bayes.em(data_to_fit_lst, model_name='basic',
+                                        # max_iter=50, tol=1e-3,
+                                        # parallelise=True)
 
     def fit_single_mle(datum):
-        return empirical_bayes.MAP(datum, model_name='basic',
-                                   iters=20, only_mle=True)
+        return mle.MLE(datum, model_name='basic', iters=40)
 
     with ProcessPoolExecutor() as executor:
         fit_participants = list(tqdm(
             executor.map(fit_single_mle, data_to_fit_lst)))
 
-    np.save("fit_pop_em.npy", fit_pop_result, allow_pickle=True)
-
     np.save("fit_individual_mle.npy", fit_participants, allow_pickle=True)
-
-    np.save("fit_pop_mle.npy", fit_pop_mle, allow_pickle=True)
 
     data_to_fit_lst = np.array(data_to_fit_lst, dtype=object)
     np.save('data_to_fit_lst.npy', data_to_fit_lst)

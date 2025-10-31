@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 import likelihoods
 import constants
 import gen_data
-import empirical_bayes
+import mle
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 
@@ -30,8 +30,7 @@ if __name__ == "__main__":
         data.append(datum)
 
     def fit_single_mle(datum):
-        return empirical_bayes.MAP(datum, model_name='basic', iters=20,
-                                   only_mle=True)
+        return mle.MLE(datum, model_name='basic', iters=30)
 
     if parallelise:
         with ProcessPoolExecutor() as executor:
@@ -40,8 +39,8 @@ if __name__ == "__main__":
     else:
         fit_participants = []
         for i in tqdm(range(len(params))):
-            fit_participant = empirical_bayes.MAP(data[i], model_name='basic',
-                                                  iters=20, only_mle=True)
+            fit_participant = mle.MLE(data[i], model_name='basic',
+                                                  iters=30)
             fit_participants.append(fit_participant)
 
     np.save("recovery_fits_mle.npy", fit_participants, allow_pickle=True)
