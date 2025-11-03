@@ -70,6 +70,7 @@ def sample_params(model_name, num_samples=1):
 
     return pars
 
+
 def MLE(data_participant, model_name, iters=5, initial_guess=None):
     """
     Maximim Likelihood estimate (MLE) for a single participant.
@@ -90,7 +91,8 @@ def MLE(data_participant, model_name, iters=5, initial_guess=None):
     # negative log posterior
     def neg_log_lik(pars):
 
-        neg_log_lik = compute_log_likelihood(pars, data_participant, model_name)
+        neg_log_lik = compute_log_likelihood(
+            pars, data_participant, model_name)
 
         return neg_log_lik
 
@@ -115,7 +117,7 @@ def MLE(data_participant, model_name, iters=5, initial_guess=None):
             nllkhd = res.fun
             final_res = res
 
-    fit_participant = {'par_b': final_res.x,  
+    fit_participant = {'par_b': final_res.x,
                        'neg_log_lik': final_res.fun,
                        'success': final_res.success}
 
@@ -127,12 +129,14 @@ if __name__ == "__main__":
     # %% fit models using MLE
     np.random.seed(0)
 
-    n_participants = 200
+    n_participants = 150
     n_trials = 1
     paralellise = True
     data = []
     input_params = []
     parallelise = False
+
+    # data = np.load('input_data_recovery_em.npy', allow_pickle=True)
 
     for i in range(n_participants):
         [discount_factor, efficacy, effort_work] = sample_params(
@@ -147,7 +151,7 @@ if __name__ == "__main__":
 
     def fit_single_mle(datum):
         return MLE(datum, model_name='basic', iters=30)
-    
+
     if parallelise:
         with ProcessPoolExecutor() as executor:
             fit_participants = list(tqdm(
@@ -163,4 +167,3 @@ if __name__ == "__main__":
     input_params = np.array(input_params, dtype=object)
     np.save('input_params_recovery.npy', input_params)
     np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
-

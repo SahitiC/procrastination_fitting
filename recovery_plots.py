@@ -1,15 +1,14 @@
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # %%
 input_params_recovery = np.load(
-    "fits/input_params_recovery.npy", allow_pickle=True)
+    "fits/input_params_recovery_beta_7.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
 recovery_em = np.load("fits/recovery_em_10traj.npy", allow_pickle=True).item()
-recovery_individual_mle = np.load("fits/recovery_individual_mle.npy",
+recovery_individual_mle = np.load("fits/recovery_individual_mle_beta_7.npy",
                                   allow_pickle=True)
 recovery_group_mle = np.load(
     "fits/recovery_group_mle.npy", allow_pickle=True).item()
@@ -65,13 +64,21 @@ for i in range(3):
         linewidth=1, color='black')  # x=y line
     plt.xlim(lim[i])
     plt.ylim(lim[i])
+
+for i in range(3):
+    for j in range(i+1):
+        plt.figure(figsize=(4, 4))
+        plt.scatter(final_result[:, i],
+                    final_result[:, j])
+        plt.title(f'Param {i} vs Param {j}')
 # %%
 fit_params = np.load("fits/fit_params_mle.npy", allow_pickle=True)
-recovered_fits = np.load("fits/recovery_fits_mle.npy", allow_pickle=True)
-lim = [(-0.05, 1.05), (-0.05, 1.05), (-2, 0.05)]
+recovered_fits = np.load("fits/recovery_fits_mles.npy",
+                         allow_pickle=True)
+lim = [(-0.05, 1.05), (-0.05, 1.05), (-5, 0.05)]
 recovered_fits_params = np.stack([recovered_fits[i]['par_b']
-                                for i in range(len(fit_params))])
-mask = np.where(fit_params[:, 0]!=0)
+                                  for i in range(len(fit_params))])
+mask = np.where(fit_params[:, 0] != 0)
 for i in range(3):
     plt.figure(figsize=(4, 4))
     plt.scatter(fit_params[mask, i],
@@ -86,4 +93,11 @@ for i in range(3):
         linewidth=1, color='black')  # x=y line
     plt.xlim(lim[i])
     plt.ylim(lim[i])
+
+for i in range(3):
+    for j in range(i+1):
+        plt.figure(figsize=(4, 4))
+        plt.scatter(recovered_fits_params[mask, i],
+                    recovered_fits_params[mask, j])
+        plt.title(f'Param {i} vs Param {j}')
 # %%

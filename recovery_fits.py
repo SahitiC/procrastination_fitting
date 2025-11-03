@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # %%
 
-    params = np.load('fits/fit_params_mle.npy', allow_pickle=True)
+    params = np.load('fit_params_mle.npy', allow_pickle=True)
     n_trials = 1
     data = []
     parallelise = True
@@ -40,7 +40,8 @@ if __name__ == "__main__":
         fit_participants = []
         for i in tqdm(range(len(params))):
             fit_participant = mle.MLE(data[i], model_name='basic',
-                                                  iters=30)
+                                      iters=30)
             fit_participants.append(fit_participant)
 
-    np.save("recovery_fits_mle.npy", fit_participants, allow_pickle=True)
+    np.save("recovery_fits_mle.npy",
+            fit_participants, allow_pickle=True)
