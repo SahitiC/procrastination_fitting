@@ -4,20 +4,19 @@ import matplotlib.pyplot as plt
 
 # %%
 input_params_recovery = np.load(
-    "fits/input_params_recovery_beta_7.npy", allow_pickle=True)
+    "fits/input_params_recovery_em.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
-recovery_em = np.load("fits/recovery_em_10traj.npy", allow_pickle=True).item()
-recovery_individual_mle = np.load("fits/recovery_individual_mle_beta_7.npy",
+recovery_em = np.load("fits/recovery_em.npy", allow_pickle=True).item()
+recovery_individual_mle = np.load("fits/recovery_individual_mle.npy",
                                   allow_pickle=True)
 recovery_group_mle = np.load(
     "fits/recovery_group_mle.npy", allow_pickle=True).item()
 
-n_participants = len(input_params_recovery)
 
 # %%
 em_recovered_params = np.stack([recovery_em['fit_participants'][i]['par_b']
-                                for i in range(n_participants)])
+                                for i in range(len(input_params_recovery_em))])
 
 lim = [(-0.05, 1.05), (-0.05, 1.05), (-1.5, 0.05)]
 
@@ -39,7 +38,7 @@ for i in range(3):
 # %%
 lim = [(-0.05, 1.05), (-0.05, 1.05), (-1.5, 0.05)]
 mle_recovered_params = np.stack([recovery_individual_mle[i]['par_b']
-                                for i in range(n_participants)])
+                                for i in range(len(input_params_recovery))])
 
 index = []
 for i in range(len(mle_recovered_params)):

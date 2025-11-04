@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # %%
 
-    params = np.load('fit_params_mle.npy', allow_pickle=True)
+    params = np.load('fit_params_mle_beta_10.npy', allow_pickle=True)
     n_trials = 1
     data = []
     parallelise = True
@@ -29,19 +29,29 @@ if __name__ == "__main__":
             effort_work, n_trials, constants.THR, constants.STATES_NO)
         data.append(datum)
 
-    def fit_single_mle(datum):
-        return mle.MLE(datum, model_name='basic', iters=30)
+    def fit_single_mle(args):
+        datum, initial_guess = args
+        return mle.MLE(datum, model_name='basic',  iters=30,
+                       initial_guess=initial_guess)
+
+    # def fit_single_mle(datum, initial_guess):
+    #     return mle.MLE(datum, model_name='basic', iters=30)
 
     if parallelise:
+        args_list = []  # store args
+        for i in range(len(params)):
+            initial_guess = params[i, :]
+            args_list.append(
+                (data[i], initial_guess))
         with ProcessPoolExecutor() as executor:
             fit_participants = list(tqdm(
-                executor.map(fit_single_mle, data)))
+                executor.map(fit_single_mle, args_list)))
     else:
         fit_participants = []
         for i in tqdm(range(len(params))):
             fit_participant = mle.MLE(data[i], model_name='basic',
-                                      iters=30)
+                                      iters=30, initial_guess=params[i, :])
             fit_participants.append(fit_participant)
 
-    np.save("recovery_fits_mle.npy",
+    np.save("recovery_fits_mle_beta_10.npy",
             fit_participants, allow_pickle=True)
