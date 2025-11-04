@@ -12,6 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 def get_num_params(model_name):
     model_params = {
+        'basic_lite': 2,
         'basic': 3,
         'efficacy_gap': 4,
         'convex_concave': 4,
@@ -24,6 +25,7 @@ def get_num_params(model_name):
 
 def get_param_ranges(model_name):
     param_ranges_dict = {
+        'basic_lite': [(0, 1), (None, 0)],
         'basic': [(0, 1), (0, 1), (None, 0)],
         'efficacy_gap': [(0, 1), (0, 1), (0, 1), (None, 0)],
         'convex_concave': [(0, 1), (0, 1), (None, 0), (0, None)],
@@ -37,7 +39,14 @@ def get_param_ranges(model_name):
 def compute_log_likelihood(params, data, model_name):
     """Compute the log likelihood for a given model and data."""
 
-    if model_name == 'basic':
+    if model_name == 'basic_lite':
+        nllkhd = likelihoods.likelihood_basic_lite(
+            params, constants.STATES, constants.ACTIONS, constants.HORIZON,
+            constants.REWARD_THR, constants.REWARD_EXTRA,
+            constants.REWARD_SHIRK, constants.BETA, constants.EFFICACY,
+            constants.THR, constants.STATES_NO, data)
+
+    elif model_name == 'basic':
         nllkhd = likelihoods.likelihood_basic_model(
             params, constants.STATES, constants.ACTIONS, constants.HORIZON,
             constants.REWARD_THR, constants.REWARD_EXTRA,
@@ -50,9 +59,14 @@ def compute_log_likelihood(params, data, model_name):
 def sample_initial_params(model_name, num_samples=1):
     """Sample initial parameters for MAP estimation."""
 
-    if model_name == 'basic':
-        discount_factor = np.random.uniform(0, 1)
-        efficacy = np.random.uniform(0, 1)
+    if model_name == 'basic_lite':
+        discount_factor = np.random.uniform(0.0, 1)
+        effort_work = -1 * np.random.exponential(0.5)
+        pars = [discount_factor, effort_work]
+
+    elif model_name == 'basic':
+        discount_factor = np.random.uniform(0.0, 1)
+        efficacy = np.random.uniform(0.0, 1)
         effort_work = -1 * np.random.exponential(0.5)
         pars = [discount_factor, efficacy, effort_work]
 
@@ -62,7 +76,12 @@ def sample_initial_params(model_name, num_samples=1):
 def sample_params(model_name, num_samples=1):
     """Sample parameters to generate data."""
 
-    if model_name == 'basic':
+    if model_name == 'basic_lite':
+        discount_factor = np.random.uniform(0.2, 1)
+        effort_work = -1 * np.random.exponential(0.5)
+        pars = [discount_factor, effort_work]
+
+    elif model_name == 'basic':
         discount_factor = np.random.uniform(0.2, 1)
         efficacy = np.random.uniform(0.35, 1)
         effort_work = -1 * np.random.exponential(0.5)
@@ -127,6 +146,48 @@ def MLE(data_participant, model_name, iters=5, initial_guess=None):
 # %%
 if __name__ == "__main__":
     # %% fit models using MLE
+    # np.random.seed(0)
+
+    # n_participants = 150
+    # n_trials = 1
+    # paralellise = True
+    # data = []
+    # input_params = []
+    # parallelise = False
+
+    # # data = np.load('input_data_recovery_em.npy', allow_pickle=True)
+
+    # for i in range(n_participants):
+    #     [discount_factor, efficacy, effort_work] = sample_params(
+    #         'basic')
+    #     datum = gen_data.gen_data_basic(
+    #         constants.STATES, constants.ACTIONS,  constants.HORIZON,
+    #         constants.REWARD_THR, constants.REWARD_EXTRA,
+    #         constants.REWARD_SHIRK, constants.BETA, discount_factor, efficacy,
+    #         effort_work, n_trials, constants.THR, constants.STATES_NO)
+    #     data.append(datum)
+    #     input_params.append([discount_factor, efficacy, effort_work])
+
+    # def fit_single_mle(datum):
+    #     return MLE(datum, model_name='basic', iters=30)
+
+    # if parallelise:
+    #     with ProcessPoolExecutor() as executor:
+    #         fit_participants = list(tqdm(
+    #             executor.map(fit_single_mle, data)))
+    # else:
+    #     fit_participants = []
+    #     for i in tqdm(range(n_participants)):
+    #         fit_participant = MLE(data[i], model_name='basic', iters=5)
+    #         fit_participants.append(fit_participant)
+
+    # data = np.array(data, dtype=object)
+    # np.save('input_data_recovery.npy', data)
+    # input_params = np.array(input_params, dtype=object)
+    # np.save('input_params_recovery.npy', input_params)
+    # np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
+
+    # %% fit models using MLE
     np.random.seed(0)
 
     n_participants = 150
@@ -136,21 +197,20 @@ if __name__ == "__main__":
     input_params = []
     parallelise = False
 
-    # data = np.load('input_data_recovery_em.npy', allow_pickle=True)
-
     for i in range(n_participants):
-        [discount_factor, efficacy, effort_work] = sample_params(
-            'basic')
+        [discount_factor, effort_work] = sample_params(
+            'basic_lite')
         datum = gen_data.gen_data_basic(
             constants.STATES, constants.ACTIONS,  constants.HORIZON,
             constants.REWARD_THR, constants.REWARD_EXTRA,
-            constants.REWARD_SHIRK, constants.BETA, discount_factor, efficacy,
-            effort_work, n_trials, constants.THR, constants.STATES_NO)
+            constants.REWARD_SHIRK, constants.BETA, discount_factor,
+            constants.EFFICACY, effort_work, n_trials, constants.THR,
+            constants.STATES_NO)
         data.append(datum)
-        input_params.append([discount_factor, efficacy, effort_work])
+        input_params.append([discount_factor, effort_work])
 
     def fit_single_mle(datum):
-        return MLE(datum, model_name='basic', iters=30)
+        return MLE(datum, model_name='basic_lite', iters=30)
 
     if parallelise:
         with ProcessPoolExecutor() as executor:
@@ -159,11 +219,12 @@ if __name__ == "__main__":
     else:
         fit_participants = []
         for i in tqdm(range(n_participants)):
-            fit_participant = MLE(data[i], model_name='basic', iters=5)
+            fit_participant = MLE(data[i], model_name='basic_lite', iters=5)
             fit_participants.append(fit_participant)
 
     data = np.array(data, dtype=object)
-    np.save('input_data_recovery.npy', data)
+    np.save('input_data_recovery_basic_lite.npy', data)
     input_params = np.array(input_params, dtype=object)
-    np.save('input_params_recovery.npy', input_params)
-    np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
+    np.save('input_params_recovery_basic_lite.npy', input_params)
+    np.save("recovery_individual_mle_basic_lite.npy",
+            fit_participants, allow_pickle=True)

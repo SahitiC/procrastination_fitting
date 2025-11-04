@@ -145,6 +145,44 @@ def likelihood_rl_basic_model(params, data):
     return nll
 
 
+def likelihood_basic_lite(x,
+                          states, actions, horizon,
+                          reward_thr, reward_extra, reward_shirk,
+                          beta, efficacy, thr, states_no, data):
+    """
+    implement likelihood calculation for basic model
+    """
+
+    discount_factor = x[0]
+    effort_work = x[1]
+
+    # define task structure
+    reward_func = task_structure.reward_no_immediate(
+        states, actions, reward_shirk)
+
+    effort_func = task_structure.effort(states, actions, effort_work)
+
+    total_reward_func_last = task_structure.reward_final(
+        states, reward_thr, reward_extra, thr, states_no)
+
+    total_reward_func = []
+    for state_current in range(len(states)):
+
+        total_reward_func.append(reward_func[state_current]
+                                 + effort_func[state_current])
+
+    T = task_structure.T_binomial(states, actions, efficacy)
+
+    # optimal policy
+    V_opt, policy_opt, Q_values = mdp_algms.find_optimal_policy_prob_rewards(
+        states, actions, horizon, discount_factor,
+        total_reward_func, total_reward_func_last, T)
+
+    nllkhd = calculate_likelihood(data, Q_values, beta, T, actions)
+
+    return nllkhd
+
+
 def likelihood_basic_model(x,
                            states, actions, horizon,
                            reward_thr, reward_extra, reward_shirk,
