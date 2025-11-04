@@ -38,7 +38,7 @@ data_relevant = pd.read_csv('data_preprocessed.csv', index_col=False)
 data_full = pd.read_csv('zhang_ma_data.csv', index_col=False)
 
 result_fit_mle = np.load(
-    "fits/fit_individual_mle_beta_10.npy", allow_pickle=True)
+    "fits/fit_individual_mle_basic_lite.npy", allow_pickle=True)
 
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
@@ -49,8 +49,8 @@ data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
 result_fit_params = np.array([result_fit_mle[i]['par_b']
                               for i in range(len(result_fit_mle))])
 
-np.save('fits/fit_params_mle_beta_10.npy',
-        result_fit_params, allow_pickle=True)
+# np.save('fits/fit_params_mle_basic_lite.npy',
+#         result_fit_params, allow_pickle=True)
 
 for i in range(3):
     plt.figure(figsize=(4, 4))

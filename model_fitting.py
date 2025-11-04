@@ -39,11 +39,11 @@ if __name__ == "__main__":
         data_to_fit_lst.append(np.array(units[i], dtype=int))
 
     # fit_pop_result = empirical_bayes.em(data_to_fit_lst, model_name='basic',
-                                        # max_iter=50, tol=1e-3,
-                                        # parallelise=True)
+        # max_iter=50, tol=1e-3,
+        # parallelise=True)
 
     def fit_single_mle(datum):
-        return mle.MLE(datum, model_name='basic', iters=40)
+        return mle.MLE(datum, model_name='basic_lite', iters=30)
 
     with ProcessPoolExecutor() as executor:
         fit_participants = list(tqdm(
