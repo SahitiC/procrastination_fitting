@@ -39,6 +39,22 @@ def get_completion_week(row):
         return np.nan
 
 
+def get_mucw(row):
+    units = np.array(ast.literal_eval(
+        row['delta progress weeks']))*2
+    units_cum = np.array(ast.literal_eval(
+        row['cumulative progress weeks']))*2
+    if np.max(units_cum) >= 14:
+        a = np.where(units_cum >= 14)[0][0]
+        arr = units[:a+1]
+        mucw = np.sum(arr * np.arange(1, len(arr)+1)) / 14
+        return mucw
+    else:
+        arr = units
+        mucw = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
+        return mucw
+
+
 def safe_fix(text):
     if isinstance(text, str):
         return ftfy.fix_text(text)
