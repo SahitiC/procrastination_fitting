@@ -3,9 +3,17 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import ast
+import ftfy
 import seaborn as sns
 from scipy.stats import pearsonr
 import statsmodels.formula.api as smf
+from sentence_transformers import SentenceTransformer
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from scipy.spatial.distance import pdist, squareform
+from collections import defaultdict
 
 # %%
 
@@ -23,7 +31,6 @@ def get_correlation(a, b):
 
 
 def get_completion_week(row):
-
     hours = np.array(ast.literal_eval(
         row['cumulative progress weeks']))
     if np.max(hours) >= 7:
@@ -32,13 +39,20 @@ def get_completion_week(row):
         return np.nan
 
 
+def safe_fix(text):
+    if isinstance(text, str):
+        return ftfy.fix_text(text)
+    return text
+
+
 # %% import data
 data_relevant = pd.read_csv('data_preprocessed.csv', index_col=False)
 
-data_full = pd.read_csv('zhang_ma_data.csv', index_col=False)
+data_full = pd.read_csv('zhang_ma_data.csv',
+                        index_col=False)
 
 result_fit_mle = np.load(
-    "fits/fit_individual_mle_basic_lite.npy", allow_pickle=True)
+    "fits/fit_individual_mle.npy", allow_pickle=True)
 
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
@@ -87,9 +101,15 @@ df = pd.DataFrame({'delay': completion_week,
                    'efficacy': efficacy_fitted,
                    'effort': efforts_fitted})
 df = df.dropna()
+cols_to_z_score = ['disc', 'efficacy', 'effort']
+df_z_scored = df.copy()
+df_z_scored[cols_to_z_score] = (
+    (df_z_scored[cols_to_z_score]
+     - df_z_scored[cols_to_z_score].mean())
+    / df_z_scored[cols_to_z_score].std())
 model = smf.ols(
     formula='delay ~ disc + efficacy + effort',
-    data=df).fit()
+    data=df_z_scored).fit()
 
 print(model.summary())
 
@@ -99,8 +119,76 @@ df = pd.DataFrame({'PASS': proc_mean,
                    'efficacy': efficacy_fitted,
                    'effort': efforts_fitted})
 df = df.dropna()
+cols_to_z_score = ['disc', 'efficacy', 'effort']
+df_z_scored = df.copy()
+df_z_scored[cols_to_z_score] = (
+    (df_z_scored[cols_to_z_score]
+     - df_z_scored[cols_to_z_score].mean())
+    / df_z_scored[cols_to_z_score].std())
 model = smf.ols(
     formula='PASS ~ disc + efficacy + effort',
-    data=df).fit()
+    data=df_z_scored).fit()
 
 print(model.summary())
+
+# %% sentence embeddings
+
+data_full_filter['TextReport_cause_procrastination'] = data_full_filter[
+    'TextReport_cause_procrastination'].apply(safe_fix)
+data_full_filter.loc[data_full_filter[
+    'TextReport_cause_procrastination'] == 'N/a'] = np.nan
+
+model = SentenceTransformer('all-mpnet-base-v2')  # all-MiniLM-L6-v2
+responses = data_full_filter[
+    'TextReport_cause_procrastination'].dropna().tolist()
+embeddings = model.encode(responses, show_progress_bar=True)
+
+# k-means
+num_clusters = 3
+kmeans = KMeans(n_clusters=num_clusters, random_state=0)
+labels_kmeans = kmeans.fit_predict(embeddings)
+
+# hierarchical clustering
+distance_matrix = squareform(pdist(embeddings, metric='cosine'))
+Z = linkage(distance_matrix, method='complete')
+plt.figure(figsize=(12, 6))
+dendrogram(
+    Z,
+    leaf_rotation=90,
+    leaf_font_size=10,
+    color_threshold=3.2
+)
+plt.title("Hierarchical Clustering Dendrogram")
+plt.xlabel("Responses")
+plt.ylabel("Distance")
+plt.show()
+# t=0.7 * max(Z[:, 2])
+labels_hier = fcluster(Z, t=3.2,  criterion='distance')
+
+# group responses by labels
+clusters = defaultdict(list)
+for response, label in zip(responses, labels_hier):
+    clusters[label].append(response)
+
+# t-SNE
+tsne = TSNE(
+    n_components=2,
+    perplexity=30,
+    learning_rate='auto',
+    max_iter=1000,
+    metric='cosine',
+    random_state=0
+)
+embeddings_2d = tsne.fit_transform(embeddings)
+
+# PCA
+pca = PCA(n_components=2)
+points_2d = pca.fit_transform(embeddings)
+
+plt.figure(figsize=(8, 6))
+plt.scatter(embeddings_2d[:, 0], embeddings_2d[:, 1], c=labels_hier)
+plt.xlabel("dim 1")
+plt.ylabel("dim 2")
+plt.show()
+
+# %%
