@@ -15,7 +15,7 @@ mkdir -p ${SCRATCH_DIRECTORY}
 cd ${SCRATCH_DIRECTORY}
 
 # copy the necessary files to scratch directory
-cp ${SLURM_SUBMIT_DIR}/fit_params_mle_beta_10.npy ${SCRATCH_DIRECTORY}
+cp ${SLURM_SUBMIT_DIR}/fit_params_mle_basic_lite.npy ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/recovery_fits.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/mle.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/likelihoods.py ${SCRATCH_DIRECTORY}

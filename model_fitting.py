@@ -43,7 +43,7 @@ if __name__ == "__main__":
         # parallelise=True)
 
     def fit_single_mle(datum):
-        return mle.MLE(datum, model_name='basic_lite', iters=30)
+        return mle.MLE(datum, model_name='basic', iters=30)
 
     with ProcessPoolExecutor() as executor:
         fit_participants = list(tqdm(
