@@ -134,7 +134,7 @@ for i in tqdm(range(len(input_data_recovery_em))):
         if not np.isinf(nl):
             nllkhd_i += nl
     print(nllkhd_i)
-    nllkhd_is.append(nllkhd_i)
+    nllkhd_is.append(nllkhd_i / samples)
     nllkhd += (nllkhd_i / samples)
     print(nllkhd)
 
@@ -144,7 +144,70 @@ iBIC_em = 2*nllkhd + (2 * n_pars * np.log(data_samples*constants.HORIZON))
 
 nllkhd_mle = sum([recovery_mle[i]['neg_log_lik']
                   for i in range(data_samples)])
+nllkhd_mles = [np.log(recovery_mle[i]['neg_log_lik'])
+               for i in range(data_samples)]
 BIC_mle = 2*nllkhd_mle + \
     (data_samples * n_pars * np.log(constants.HORIZON))
+
+# peak nllkhds
+
+nllkhd_peaks = []
+for i in tqdm(range(len(input_data_recovery_em))):
+
+    params_b = recovery_params[i, :]
+
+    nllkhd = likelihoods.likelihood_basic_model(
+        params_b, constants.STATES,
+        constants.ACTIONS, constants.HORIZON,
+        constants.REWARD_THR, constants.REWARD_EXTRA,
+        constants.REWARD_SHIRK, constants.BETA, constants.THR,
+        constants.STATES_NO, input_data_recovery_em[i, :][0])
+    if not np.isinf(nllkhd):
+        nllkhd_peaks.append(nllkhd)
+
+plt.figure()
+plt.scatter(nllkhd_mles, nllkhd_peaks)
+plt.figure()
+plt.scatter(nllkhd_mles, nllkhd_is)
+
+
+# %% total likelihood
+
+discount_factors = np.linspace(0, 1, 50)
+nllkhd_df = [likelihoods.likelihood_basic_model(
+            [df, recovery_em['pop_means'][1], recovery_em['pop_means'][2]],
+    constants.STATES, constants.ACTIONS, constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA, constants.THR,
+    constants.STATES_NO, np.squeeze(input_data_recovery_em))
+    for df in discount_factors]
+plt.figure()
+plt.plot(discount_factors, nllkhd_df)
+plt.xlabel('discount factor')
+
+efficacys = np.linspace(0, 1, 50)
+nllkhd_eff = [likelihoods.likelihood_basic_model(
+    [recovery_em['pop_means'][0], eff, recovery_em['pop_means'][2]],
+    constants.STATES, constants.ACTIONS, constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA, constants.THR,
+    constants.STATES_NO, np.squeeze(input_data_recovery_em))
+    for eff in efficacys]
+plt.figure()
+plt.plot(efficacys, nllkhd_eff)
+plt.xlabel('efficacy')
+
+
+efforts = np.linspace(-4, 0, 50)
+nllkhd_efft = [likelihoods.likelihood_basic_model(
+    [recovery_em['pop_means'][0], recovery_em['pop_means'][1], efft],
+    constants.STATES, constants.ACTIONS, constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA, constants.THR,
+    constants.STATES_NO, np.squeeze(input_data_recovery_em))
+    for efft in efforts]
+plt.figure()
+plt.plot(efforts, nllkhd_efft)
+plt.xlabel('efforts')
 
 # %%

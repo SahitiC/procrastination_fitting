@@ -1,6 +1,8 @@
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
+import constants
+import gen_data
 
 # %%
 input_params_recovery = np.load(
@@ -82,25 +84,25 @@ for i in range(n_params):
                     final_result[:, j])
         plt.title(f'Param {i} vs Param {j}')
 # %%
-fit_params = np.load("fits/fit_params_mle_200.npy", allow_pickle=True)
-recovered_fits = np.load("fits/recovery_fits_mle_200.npy",
+fit_params = np.load("fits/fit_params_mle.npy", allow_pickle=True)
+recovered_fits = np.load("fits/recovery_fits_mle.npy",
                          allow_pickle=True)
 n_params = 3
 if n_params == 3:
-    lim = [(-0.05, 1.05), (-0.05, 1.05), (-4, 0.05)]
+    lim = [(-0.05, 1.05), (-0.05, 1.05), (-5, 0.05)]
 elif n_params == 2:
-    lim = [(-0.05, 1.05), (-4, 0.05)]
+    lim = [(-0.05, 1.05), (-5, 0.05)]
 
-recovered_fits_params = np.stack([recovered_fits[i]['par_b']
-                                  for i in range(len(fit_params))])
+recovered_fit_params = np.stack([recovered_fits[i]['par_b']
+                                 for i in range(len(fit_params))])
 
 mask = np.where(fit_params[:, 0] != 0)
 for i in range(n_params):
     plt.figure(figsize=(4, 4))
     plt.scatter(fit_params[mask, i],
-                recovered_fits_params[mask, i])
+                recovered_fit_params[mask, i])
     x = np.array([float(np.ravel(a)[0]) for a in fit_params[:, i]])
-    y = np.array([float(np.ravel(a)[0]) for a in recovered_fits_params[:, i]])
+    y = np.array([float(np.ravel(a)[0]) for a in recovered_fit_params[:, i]])
     corr = np.corrcoef(x, y)
     plt.title(f'corr = {corr[0, 1]}')
     plt.plot(
@@ -113,7 +115,16 @@ for i in range(n_params):
 for i in range(n_params):
     for j in range(i+1):
         plt.figure(figsize=(4, 4))
-        plt.scatter(recovered_fits_params[mask, i],
-                    recovered_fits_params[mask, j])
+        plt.scatter(recovered_fit_params[mask, i],
+                    recovered_fit_params[mask, j])
         plt.title(f'Param {i} vs Param {j}')
 # %%
+data_gen = gen_data.gen_data_basic(
+    constants.STATES, constants.ACTIONS,  constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA, fit_params[10, 0],
+    fit_params[10, 1], fit_params[10, 2], 5, constants.THR,
+    constants.STATES_NO)
+plt.figure()
+for i in range(5):
+    plt.plot(data_gen[i], color='gray')
