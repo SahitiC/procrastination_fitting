@@ -4,7 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import ast
 import ftfy
-import seaborn as sns
 from scipy.stats import pearsonr
 import statsmodels.formula.api as smf
 from sentence_transformers import SentenceTransformer
@@ -79,7 +78,7 @@ data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
 result_fit_params = np.array([result_fit_mle[i]['par_b']
                               for i in range(len(result_fit_mle))])
 
-# np.save('fits/fit_params_mle_basic_lite.npy',
+# np.save('fits/fit_params_mle.npy',
 #         result_fit_params, allow_pickle=True)
 
 for i in range(3):
@@ -100,6 +99,8 @@ task_aversiveness = np.array(data_full_filter['ReasonProc_TaskAversiveness'])
 discount_factors_empirical = np.exp(discount_factors_log_empirical)
 get_correlation(discount_factors_log_empirical, discount_factors_fitted)
 get_correlation(proc_mean, discount_factors_fitted)
+get_correlation(proc_mean, efficacy_fitted)
+get_correlation(proc_mean, efforts_fitted)
 get_correlation(impulsivity_score, discount_factors_fitted)
 get_correlation(task_aversiveness, np.abs(efforts_fitted))
 get_correlation(time_management, efficacy_fitted)
