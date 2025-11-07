@@ -96,12 +96,14 @@ proc_mean = np.array(data_full_filter['AcadeProcFreq_mean'])
 impulsivity_score = np.array(data_full_filter['ImpulsivityScore'])
 time_management = np.array(data_full_filter['ReasonProc_TimeManagement'])
 task_aversiveness = np.array(data_full_filter['ReasonProc_TaskAversiveness'])
+laziness = np.array(data_full_filter['ReasonProc_Laziness'])
 
 discount_factors_empirical = np.exp(discount_factors_log_empirical)
 get_correlation(discount_factors_log_empirical, discount_factors_fitted)
 get_correlation(proc_mean, discount_factors_fitted)
 get_correlation(impulsivity_score, discount_factors_fitted)
 get_correlation(task_aversiveness, np.abs(efforts_fitted))
+get_correlation(laziness, np.abs(efforts_fitted))
 get_correlation(time_management, efficacy_fitted)
 
 # %% task based measures
