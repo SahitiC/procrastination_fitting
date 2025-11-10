@@ -119,12 +119,23 @@ for i in range(n_params):
                     recovered_fit_params[mask, j])
         plt.title(f'Param {i} vs Param {j}')
 # %%
+data = np.load("fits/data_to_fit_lst.npy", allow_pickle=True)
+idx = 1
 data_gen = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA,
-    constants.REWARD_SHIRK, constants.BETA, fit_params[10, 0],
-    fit_params[10, 1], fit_params[10, 2], 5, constants.THR,
+    constants.REWARD_SHIRK, constants.BETA, fit_params[idx, 0],
+    fit_params[idx, 1], fit_params[idx, 2], 5, constants.THR,
+    constants.STATES_NO)
+data_gen_recovered = gen_data.gen_data_basic(
+    constants.STATES, constants.ACTIONS,  constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA, recovered_fit_params[idx, 0],
+    recovered_fit_params[idx,
+                         1], recovered_fit_params[idx, 2], 5, constants.THR,
     constants.STATES_NO)
 plt.figure()
 for i in range(5):
     plt.plot(data_gen[i], color='gray')
+    plt.plot(data_gen_recovered[i], color='black', linestyle='dashed')
+plt.plot(data[idx])
