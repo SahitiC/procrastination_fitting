@@ -107,7 +107,7 @@ def MLE(data_participant, model_name, iters=5, initial_guess=None):
 
     param_ranges = get_param_ranges(model_name)
 
-    if np.max(data_participant) <= 14:
+    if np.max(data_participant) <= 15:
         reward_extra = 0.0
     else:
         reward_extra = constants.REWARD_EXTRA

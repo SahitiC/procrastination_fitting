@@ -1,16 +1,17 @@
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import constants
 import gen_data
 
 # %%
 input_params_recovery = np.load(
-    "fits/input_params_recovery_basic_lite.npy", allow_pickle=True)
+    "fits/input_params_recovery.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
 recovery_em = np.load("fits/recovery_em.npy", allow_pickle=True).item()
-recovery_individual_mle = np.load("fits/recovery_individual_mle_basic_lite.npy",
+recovery_individual_mle = np.load("fits/recovery_individual_mle.npy",
                                   allow_pickle=True)
 recovery_group_mle = np.load(
     "fits/recovery_group_mle.npy", allow_pickle=True).item()
@@ -24,11 +25,11 @@ lim = [(-0.05, 1.05), (-0.05, 1.05), (-1.5, 0.05)]
 
 for i in range(3):
     plt.figure(figsize=(4, 4))
-    plt.scatter(input_params_recovery[:, i],
+    plt.scatter(input_params_recovery_em[:, i],
                 em_recovered_params[:, i])
-    x = np.array([float(np.ravel(a)[0])
+    x = np.array([a
                  for a in input_params_recovery_em[:, i]])
-    y = np.array([float(np.ravel(a)[0]) for a in em_recovered_params[:, i]])
+    y = np.array([a for a in em_recovered_params[:, i]])
     corr = np.corrcoef(x, y)
     plt.title(f'corr = {corr[0, 1]}')
     plt.plot(
@@ -66,8 +67,8 @@ for i in range(n_params):
     plt.figure(figsize=(4, 4))
     plt.scatter(final_inputs[:, i],
                 final_result[:, i])
-    x = np.array([float(np.ravel(a)[0]) for a in final_inputs[:, i]])
-    y = np.array([float(np.ravel(a)[0]) for a in final_result[:, i]])
+    x = np.array([a for a in final_inputs[:, i]])
+    y = np.array([a for a in final_result[:, i]])
     corr = np.corrcoef(x, y)
     plt.title(f'corr = {corr[0, 1]}')
     plt.plot(
@@ -93,16 +94,31 @@ if n_params == 3:
 elif n_params == 2:
     lim = [(-0.05, 1.05), (-5, 0.05)]
 
+tolerance = [0.4, 0.4, 1.8]
+
 recovered_fit_params = np.stack([recovered_fits[i]['par_b']
                                  for i in range(len(fit_params))])
 
 mask = np.where(fit_params[:, 0] != 0)
+idxs = []  # to exclude
 for i in range(n_params):
+    colors = []
+    for j in range(len(fit_params)):
+        if np.abs(fit_params[j, i]-recovered_fit_params[j, i]) < tolerance[i]:
+            colors.append('tab:blue')
+        else:
+            colors.append('tab:red')
+            if not (j in idxs):
+                idxs.append(j)
+
+    colors = np.array(colors)
+    print(sum(np.where(colors == 'tab:red', 1, 0)))
     plt.figure(figsize=(4, 4))
     plt.scatter(fit_params[mask, i],
-                recovered_fit_params[mask, i])
-    x = np.array([float(np.ravel(a)[0]) for a in fit_params[:, i]])
-    y = np.array([float(np.ravel(a)[0]) for a in recovered_fit_params[:, i]])
+                recovered_fit_params[mask, i],
+                c=colors[mask])
+    x = np.array([a for a in fit_params[mask, i]])
+    y = np.array([a for a in recovered_fit_params[mask, i]])
     corr = np.corrcoef(x, y)
     plt.title(f'corr = {corr[0, 1]}')
     plt.plot(
@@ -112,15 +128,35 @@ for i in range(n_params):
     plt.xlim(lim[i])
     plt.ylim(lim[i])
 
-for i in range(n_params):
-    for j in range(i+1):
-        plt.figure(figsize=(4, 4))
-        plt.scatter(recovered_fit_params[mask, i],
-                    recovered_fit_params[mask, j])
-        plt.title(f'Param {i} vs Param {j}')
+fit_params_recoverable = np.delete(fit_params, idxs, axis=0)
+
+np.save('fits/fit_params_mle_recoverable.npy',
+        fit_params_recoverable, allow_pickle=True)
+
+data_full = pd.read_csv('zhang_ma_data.csv', index_col=False)
+data_relevant = pd.read_csv('data_preprocessed.csv', index_col=False)
+data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
+    data_relevant['SUB_INDEX_194'])].reset_index(drop=True)
+
+data_full_recoverable = data_full_filter.drop(
+    index=idxs).reset_index(drop=True)
+data_full_recoverable.to_csv('data_recoverable.csv', index=False)
+
+data_processed = pd.read_csv('data_preprocessed.csv', index_col=False)
+data_processed_recoverable = data_processed.drop(
+    index=idxs).reset_index(drop=True)
+data_processed_recoverable.to_csv(
+    'data_preprocessed_recoverable.csv', index=False)
+# for i in range(n_params):
+#     for j in range(i+1):
+#         plt.figure(figsize=(4, 4))
+#         plt.scatter(recovered_fit_params[mask, i],
+#                     recovered_fit_params[mask, j])
+#         plt.title(f'Param {i} vs Param {j}')
+
 # %%
-data = np.load("fits/data_to_fit_lst.npy", allow_pickle=True)
-idx = 1
+data = np.load('fits/data_to_fit_lst.npy', allow_pickle=True)
+idx = 0
 data_gen = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA,
@@ -130,12 +166,13 @@ data_gen = gen_data.gen_data_basic(
 data_gen_recovered = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA,
-    constants.REWARD_SHIRK, constants.BETA, recovered_fit_params[idx, 0],
-    recovered_fit_params[idx,
-                         1], recovered_fit_params[idx, 2], 5, constants.THR,
-    constants.STATES_NO)
+    constants.REWARD_SHIRK, constants.BETA,
+    recovered_fit_params[idx, 0], recovered_fit_params[idx, 1],
+    recovered_fit_params[idx, 2], 5, constants.THR, constants.STATES_NO)
 plt.figure()
+plt.plot(data[idx])
 for i in range(5):
     plt.plot(data_gen[i], color='gray')
     plt.plot(data_gen_recovered[i], color='black', linestyle='dashed')
-plt.plot(data[idx])
+
+# %%

@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 import likelihoods
 import constants
 import gen_data
-import mle
+import mle2
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # # %%
 
-    params = np.load('fit_params_mle.npy', allow_pickle=True)
+    params = np.load('fit_params_mle_2_rextras.npy', allow_pickle=True)
     n_trials = 1
     data = []
     parallelise = True
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     def fit_single_mle(args):
         datum, initial_guess = args
-        return mle.MLE(datum, model_name='basic',  iters=30,
+        return mle2.MLE(datum, model_name='basic',  iters=50,
                        initial_guess=initial_guess)
 
     # def fit_single_mle(datum, initial_guess):
@@ -49,11 +49,11 @@ if __name__ == "__main__":
     else:
         fit_participants = []
         for i in tqdm(range(len(params))):
-            fit_participant = mle.MLE(data[i], model_name='basic',
-                                      iters=30, initial_guess=params[i, :])
+            fit_participant = mle2.MLE(data[i], model_name='basic',
+                                      iters=50, initial_guess=params[i, :])
             fit_participants.append(fit_participant)
 
-    np.save("recovery_fits_mle.npy",
+    np.save("recovery_fits_mle_2_rextras.npy",
             fit_participants, allow_pickle=True)
 
     # %%
