@@ -13,6 +13,7 @@ from sklearn.cluster import KMeans
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
 from collections import defaultdict
+import constants
 
 # %%
 
@@ -72,30 +73,43 @@ result_fit_mle = np.load(
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
 # %%
+nllkhd = sum([result_fit_mle[i]['neg_log_lik'] 
+                    for i in range(len(result_fit_mle))])
+BIC = BIC_mle = 2*nllkhd + \
+    (len(result_fit_mle) * 3 * np.log(constants.HORIZON))
+# %%
 data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
     data_relevant['SUB_INDEX_194'])]
 # result_fit_params = np.vstack(np.hstack(result_fit_mle[:, 1, :]))
 result_fit_params = np.array([result_fit_mle[i]['par_b']
                               for i in range(len(result_fit_mle))])
 
-# np.save('fits/fit_params_mle.npy',
-#         result_fit_params, allow_pickle=True)
+np.save('fits/fit_params_mle.npy',
+        result_fit_params, allow_pickle=True)
 
 for i in range(3):
     plt.figure(figsize=(4, 4))
     plt.hist(result_fit_params[:, i])
 
 # %%
+fit_params_recoverable = np.load('fits/fit_params_mle_recoverable.npy',
+                                    allow_pickle=True)
+data_recoverable = pd.read_csv('data_recoverable.csv', index_col=False)
 
-discount_factors_log_empirical = np.array(data_full_filter['DiscountRate_lnk'])
-discount_factors_fitted = result_fit_params[:, 0]
-efficacy_fitted = result_fit_params[:, 1]
-efforts_fitted = result_fit_params[:, 2]
-proc_mean = np.array(data_full_filter['AcadeProcFreq_mean'])
-impulsivity_score = np.array(data_full_filter['ImpulsivityScore'])
-time_management = np.array(data_full_filter['ReasonProc_TimeManagement'])
-task_aversiveness = np.array(data_full_filter['ReasonProc_TaskAversiveness'])
-laziness = np.array(data_full_filter['ReasonProc_Laziness'])
+# %%
+
+fit_params = fit_params_recoverable # result_fit_params
+data = data_recoverable # data_full_filter
+
+discount_factors_log_empirical = np.array(data['DiscountRate_lnk'])
+discount_factors_fitted = fit_params[:, 0]
+efficacy_fitted = fit_params[:, 1]
+efforts_fitted = fit_params[:, 2]
+proc_mean = np.array(data['AcadeProcFreq_mean'])
+impulsivity_score = np.array(data['ImpulsivityScore'])
+time_management = np.array(data['ReasonProc_TimeManagement'])
+task_aversiveness = np.array(data['ReasonProc_TaskAversiveness'])
+laziness = np.array(data['ReasonProc_Laziness'])
 
 discount_factors_empirical = np.exp(discount_factors_log_empirical)
 get_correlation(discount_factors_log_empirical, discount_factors_fitted)
@@ -110,12 +124,20 @@ get_correlation(time_management, efficacy_fitted)
 # %% task based measures
 data_processed = pd.read_csv(
     'data_preprocessed.csv', index_col=False)
+data_processed_recoverable = pd.read_csv(
+    'data_preprocessed_recoverable.csv', index_col=False)
 
-completion_week = np.array(data_processed.apply(get_completion_week, axis=1))
+data_p = data_processed_recoverable # data_processed
+
+completion_week = np.array(data_p.apply(get_completion_week, axis=1))
+mucw = np.array(data_p.apply(get_mucw, axis=1))
 
 delay = completion_week
+delay = mucw
 
-df = pd.DataFrame({'delay': completion_week,
+get_correlation(completion_week, mucw)
+
+df = pd.DataFrame({'delay': delay,
                    'disc': discount_factors_fitted,
                    'efficacy': efficacy_fitted,
                    'effort': efforts_fitted})
