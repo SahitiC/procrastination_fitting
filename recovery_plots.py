@@ -128,6 +128,35 @@ for i in range(n_params):
     plt.xlim(lim[i])
     plt.ylim(lim[i])
 
+# for i in range(n_params):
+#     for j in range(i+1):
+#         plt.figure(figsize=(4, 4))
+#         plt.scatter(recovered_fit_params[mask, i],
+#                     recovered_fit_params[mask, j])
+#         plt.title(f'Param {i} vs Param {j}')
+
+# %%
+data = np.load('fits/data_to_fit_lst.npy', allow_pickle=True)
+idx = 116
+data_gen = gen_data.gen_data_basic(
+    constants.STATES, constants.ACTIONS,  constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA, fit_params[idx, 0],
+    fit_params[idx, 1], fit_params[idx, 2], 5, constants.THR,
+    constants.STATES_NO)
+data_gen_recovered = gen_data.gen_data_basic(
+    constants.STATES, constants.ACTIONS,  constants.HORIZON,
+    constants.REWARD_THR, constants.REWARD_EXTRA,
+    constants.REWARD_SHIRK, constants.BETA,
+    recovered_fit_params[idx, 0], recovered_fit_params[idx, 1],
+    recovered_fit_params[idx, 2], 5, constants.THR, constants.STATES_NO)
+plt.figure()
+plt.plot(data[idx])
+for i in range(5):
+    plt.plot(data_gen[i], color='gray')
+    plt.plot(data_gen_recovered[i], color='black', linestyle='dashed')
+
+# %% save recoverable data, plots
 fit_params_recoverable = np.delete(fit_params, idxs, axis=0)
 
 np.save('fits/fit_params_mle_recoverable.npy',
@@ -147,32 +176,3 @@ data_processed_recoverable = data_processed.drop(
     index=idxs).reset_index(drop=True)
 data_processed_recoverable.to_csv(
     'data_preprocessed_recoverable.csv', index=False)
-# for i in range(n_params):
-#     for j in range(i+1):
-#         plt.figure(figsize=(4, 4))
-#         plt.scatter(recovered_fit_params[mask, i],
-#                     recovered_fit_params[mask, j])
-#         plt.title(f'Param {i} vs Param {j}')
-
-# %%
-data = np.load('fits/data_to_fit_lst.npy', allow_pickle=True)
-idx = 0
-data_gen = gen_data.gen_data_basic(
-    constants.STATES, constants.ACTIONS,  constants.HORIZON,
-    constants.REWARD_THR, constants.REWARD_EXTRA,
-    constants.REWARD_SHIRK, constants.BETA, fit_params[idx, 0],
-    fit_params[idx, 1], fit_params[idx, 2], 5, constants.THR,
-    constants.STATES_NO)
-data_gen_recovered = gen_data.gen_data_basic(
-    constants.STATES, constants.ACTIONS,  constants.HORIZON,
-    constants.REWARD_THR, constants.REWARD_EXTRA,
-    constants.REWARD_SHIRK, constants.BETA,
-    recovered_fit_params[idx, 0], recovered_fit_params[idx, 1],
-    recovered_fit_params[idx, 2], 5, constants.THR, constants.STATES_NO)
-plt.figure()
-plt.plot(data[idx])
-for i in range(5):
-    plt.plot(data_gen[i], color='gray')
-    plt.plot(data_gen_recovered[i], color='black', linestyle='dashed')
-
-# %%
