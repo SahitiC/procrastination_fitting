@@ -14,6 +14,8 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
 from collections import defaultdict
 import constants
+import matplotlib as mpl
+mpl.rcParams['font.size'] = 18
 
 # %%
 
@@ -68,7 +70,7 @@ data_full = pd.read_csv('zhang_ma_data.csv',
                         index_col=False)
 
 result_fit_mle = np.load(
-    "fits/fit_individual_mle_old.npy", allow_pickle=True)
+    "fits/fit_individual_mle.npy", allow_pickle=True)
 
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
@@ -91,15 +93,26 @@ for i in range(3):
     plt.figure(figsize=(4, 4))
     plt.hist(result_fit_params[:, i])
 
+for i in range(3):
+    for j in range(i+1):
+        plt.figure(figsize=(4, 4))
+        plt.scatter(result_fit_params[:, i],
+                    result_fit_params[:, j])
+        plt.title(f'Param {i} vs Param {j}')
+
+
 # %%
 fit_params_recoverable = np.load('fits/fit_params_mle_recoverable.npy',
                                     allow_pickle=True)
 data_recoverable = pd.read_csv('data_recoverable.csv', index_col=False)
-
+data_processed = pd.read_csv(
+    'data_preprocessed.csv', index_col=False)
+data_processed_recoverable = pd.read_csv(
+    'data_preprocessed_recoverable.csv', index_col=False)
 # %%
 
-fit_params = fit_params_recoverable # result_fit_params
-data = data_recoverable # data_full_filter
+fit_params = result_fit_params # fit_params_recoverable
+data = data_full_filter # data_recoverable
 
 discount_factors_log_empirical = np.array(data['DiscountRate_lnk'])
 discount_factors_fitted = fit_params[:, 0]
@@ -110,6 +123,7 @@ impulsivity_score = np.array(data['ImpulsivityScore'])
 time_management = np.array(data['ReasonProc_TimeManagement'])
 task_aversiveness = np.array(data['ReasonProc_TaskAversiveness'])
 laziness = np.array(data['ReasonProc_Laziness'])
+self_control = np.array(data['SelfControlScore'])
 
 discount_factors_empirical = np.exp(discount_factors_log_empirical)
 get_correlation(discount_factors_log_empirical, discount_factors_fitted)
@@ -117,23 +131,18 @@ get_correlation(proc_mean, discount_factors_fitted)
 get_correlation(proc_mean, efficacy_fitted)
 get_correlation(proc_mean, efforts_fitted)
 get_correlation(impulsivity_score, discount_factors_fitted)
+get_correlation(self_control, discount_factors_fitted)
 get_correlation(task_aversiveness, np.abs(efforts_fitted))
 get_correlation(laziness, np.abs(efforts_fitted))
 get_correlation(time_management, efficacy_fitted)
 
 # %% task based measures
-data_processed = pd.read_csv(
-    'data_preprocessed.csv', index_col=False)
-data_processed_recoverable = pd.read_csv(
-    'data_preprocessed_recoverable.csv', index_col=False)
-
-data_p = data_processed_recoverable # data_processed
+data_p = data_processed # data_processed_recoverable
 
 completion_week = np.array(data_p.apply(get_completion_week, axis=1))
 mucw = np.array(data_p.apply(get_mucw, axis=1))
 
-delay = completion_week
-delay = mucw
+delay = mucw # completion_week 
 
 get_correlation(completion_week, mucw)
 
@@ -171,6 +180,24 @@ model = smf.ols(
     data=df_z_scored).fit()
 
 print(model.summary())
+
+# %% text responses
+
+df = data_processed.set_index('SUB_INDEX_194')
+
+# planners 
+idxs = [4, 18, 21, 109]
+# workload
+idxs = [64, 86, 147, 181]
+# lack of motivation
+idxs = [0, 25, 58, 110]
+# forgetting
+idxs = [7, 52, 157]
+for idx in idxs:
+    plt.plot(ast.literal_eval(df.loc[idx, 'cumulative progress weeks']),
+             color='gray')
+plt.xlabel('weeks')
+plt.ylabel('cumulative hours finished')
 
 # %% sentence embeddings
 
