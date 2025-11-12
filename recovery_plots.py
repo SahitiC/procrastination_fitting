@@ -7,7 +7,7 @@ import gen_data
 
 # %%
 input_params_recovery = np.load(
-    "fits/input_params_recovery.npy", allow_pickle=True)
+    "fits/input_params_recovery_em.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
 recovery_em = np.load("fits/recovery_em.npy", allow_pickle=True).item()
@@ -31,23 +31,25 @@ for i in range(3):
                  for a in input_params_recovery_em[:, i]])
     y = np.array([a for a in em_recovered_params[:, i]])
     corr = np.corrcoef(x, y)
-    plt.title(f'corr = {corr[0, 1]}')
+    plt.title(f'corr = {np.round(corr[0, 1], 3)}')
     plt.plot(
         np.linspace(lim[i][0], lim[i][1], 10),
         np.linspace(lim[i][0], lim[i][1], 10),
         linewidth=1, color='black')  # x=y line
     plt.xlim(lim[i])
     plt.ylim(lim[i])
+    plt.xlabel('Input Parameter')
+    plt.ylabel('Recovered Parameter')
 
 # %%
 
 mle_recovered_params = np.stack([recovery_individual_mle[i]['par_b']
                                 for i in range(len(input_params_recovery))])
-n_params = 2
+n_params = 3
 if n_params == 3:
-    lim = [(-0.05, 1.05), (-0.05, 1.05), (-6.5, 0.05)]
+    lim = [(-0.05, 1.05), (-0.05, 1.05), (-2, 0.05)]
 elif n_params == 2:
-    lim = [(-0.05, 1.05), (-6.5, 0.05)]
+    lim = [(-0.05, 1.05), (-2, 0.05)]
 
 
 index = []
@@ -70,13 +72,15 @@ for i in range(n_params):
     x = np.array([a for a in final_inputs[:, i]])
     y = np.array([a for a in final_result[:, i]])
     corr = np.corrcoef(x, y)
-    plt.title(f'corr = {corr[0, 1]}')
+    plt.title(f'corr = {np.round(corr[0, 1], 3)}')
     plt.plot(
         np.linspace(lim[i][0], lim[i][1], 10),
         np.linspace(lim[i][0], lim[i][1], 10),
         linewidth=1, color='black')  # x=y line
     plt.xlim(lim[i])
     plt.ylim(lim[i])
+    plt.xlabel('Input Parameter')
+    plt.ylabel('Recovered Parameter')
 
 for i in range(n_params):
     for j in range(i+1):
@@ -120,13 +124,16 @@ for i in range(n_params):
     x = np.array([a for a in fit_params[mask, i]])
     y = np.array([a for a in recovered_fit_params[mask, i]])
     corr = np.corrcoef(x, y)
-    plt.title(f'corr = {corr[0, 1]}')
+    plt.title(f'corr = {np.round(corr[0, 1], 3)}')
     plt.plot(
         np.linspace(lim[i][0], lim[i][1], 10),
         np.linspace(lim[i][0], lim[i][1], 10),
         linewidth=1, color='black')  # x=y line
     plt.xlim(lim[i])
     plt.ylim(lim[i])
+
+    plt.xlabel('Input Parameter')
+    plt.ylabel('Recovered Parameter')
 
 # for i in range(n_params):
 #     for j in range(i+1):
