@@ -70,13 +70,13 @@ data_full = pd.read_csv('zhang_ma_data.csv',
                         index_col=False)
 
 result_fit_mle = np.load(
-    "fits/fit_individual_mle.npy", allow_pickle=True)
+    "fits/fit_individual_mle_low_rextra.npy", allow_pickle=True)
 
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
 # %%
-nllkhd = sum([result_fit_mle[i]['neg_log_lik'] 
-                    for i in range(len(result_fit_mle))])
+nllkhd = sum([result_fit_mle[i]['neg_log_lik']
+              for i in range(len(result_fit_mle))])
 BIC = BIC_mle = 2*nllkhd + \
     (len(result_fit_mle) * 3 * np.log(constants.HORIZON))
 # %%
@@ -86,7 +86,7 @@ data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
 result_fit_params = np.array([result_fit_mle[i]['par_b']
                               for i in range(len(result_fit_mle))])
 
-# np.save('fits/fit_params_mle.npy',
+# np.save('fits/fit_params_mle_extended_ranges.npy',
 #         result_fit_params, allow_pickle=True)
 
 for i in range(3):
@@ -103,7 +103,7 @@ for i in range(3):
 
 # %%
 fit_params_recoverable = np.load('fits/fit_params_mle_recoverable.npy',
-                                    allow_pickle=True)
+                                 allow_pickle=True)
 data_recoverable = pd.read_csv('data_recoverable.csv', index_col=False)
 data_processed = pd.read_csv(
     'data_preprocessed.csv', index_col=False)
@@ -111,8 +111,8 @@ data_processed_recoverable = pd.read_csv(
     'data_preprocessed_recoverable.csv', index_col=False)
 # %%
 
-fit_params = result_fit_params # fit_params_recoverable
-data = data_full_filter # data_recoverable
+fit_params = result_fit_params  # fit_params_recoverable
+data = data_full_filter  # data_recoverable
 
 discount_factors_log_empirical = np.array(data['DiscountRate_lnk'])
 discount_factors_fitted = fit_params[:, 0]
@@ -137,12 +137,12 @@ get_correlation(laziness, np.abs(efforts_fitted))
 get_correlation(time_management, efficacy_fitted)
 
 # %% task based measures
-data_p = data_processed # data_processed_recoverable
+data_p = data_processed  # data_processed_recoverable
 
 completion_week = np.array(data_p.apply(get_completion_week, axis=1))
 mucw = np.array(data_p.apply(get_mucw, axis=1))
 
-delay = mucw # completion_week 
+delay = mucw  # completion_week
 
 get_correlation(completion_week, mucw)
 
@@ -185,7 +185,7 @@ print(model.summary())
 
 df = data_processed.set_index('SUB_INDEX_194')
 
-# planners 
+# planners
 idxs = [4, 18, 21, 109]
 # workload
 idxs = [64, 86, 147, 181]

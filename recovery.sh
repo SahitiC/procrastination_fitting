@@ -15,7 +15,7 @@ mkdir -p ${SCRATCH_DIRECTORY}
 cd ${SCRATCH_DIRECTORY}
 
 # copy the necessary files to scratch directory
-cp ${SLURM_SUBMIT_DIR}/mle.py ${SCRATCH_DIRECTORY}
+cp ${SLURM_SUBMIT_DIR}/empirical_bayes.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/likelihoods.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/constants.py ${SCRATCH_DIRECTORY}
 cp ${SLURM_SUBMIT_DIR}/gen_data.py ${SCRATCH_DIRECTORY}
@@ -28,7 +28,7 @@ conda activate env
 
 # execute the job and time it
 # time mpirun
-python mle.py
+python empirical_bayes.py
 
 # save the result to the submit directory
 # cp -r ${SCRATCH_DIRECTORY}/result_recovery.npy ${SLURM_SUBMIT_DIR}/${SLURM_JOBID}

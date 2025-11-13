@@ -7,21 +7,22 @@ import gen_data
 
 # %%
 input_params_recovery = np.load(
-    "fits/input_params_recovery_em.npy", allow_pickle=True)
+    "fits/input_params_recovery_em_dist.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
-    "fits/input_params_recovery_em.npy", allow_pickle=True)
-recovery_em = np.load("fits/recovery_em.npy", allow_pickle=True).item()
+    "fits/input_params_recovery_em_dist.npy", allow_pickle=True)
+recovery_em = np.load("fits/recovery_em_dist.npy",
+                      allow_pickle=True).item()
 recovery_individual_mle = np.load("fits/recovery_individual_mle.npy",
                                   allow_pickle=True)
 recovery_group_mle = np.load(
-    "fits/recovery_group_mle.npy", allow_pickle=True).item()
+    "fits/recovery_group_mle_dist.npy", allow_pickle=True).item()
 
 
 # %%
 em_recovered_params = np.stack([recovery_em['fit_participants'][i]['par_b']
                                 for i in range(len(input_params_recovery_em))])
 
-lim = [(-0.05, 1.05), (-0.05, 1.05), (-1.5, 0.05)]
+lim = [(0.8, 1.05), (0.6, 1.05), (-1.5, 0.05)]
 
 for i in range(3):
     plt.figure(figsize=(4, 4))
@@ -89,8 +90,8 @@ for i in range(n_params):
                     final_result[:, j])
         plt.title(f'Param {i} vs Param {j}')
 # %%
-fit_params = np.load("fits/fit_params_mle.npy", allow_pickle=True)
-recovered_fits = np.load("fits/recovery_fits_mle.npy",
+fit_params = np.load("fits/fit_params_mle_low_rextra.npy", allow_pickle=True)
+recovered_fits = np.load("fits/recovery_fits_mle_low_rextra.npy",
                          allow_pickle=True)
 n_params = 3
 if n_params == 3:
@@ -98,7 +99,7 @@ if n_params == 3:
 elif n_params == 2:
     lim = [(-0.05, 1.05), (-5, 0.05)]
 
-tolerance = [0.4, 0.4, 1.8]
+tolerance = [0.45, 0.45, 1.8]
 
 recovered_fit_params = np.stack([recovered_fits[i]['par_b']
                                  for i in range(len(fit_params))])
@@ -144,7 +145,8 @@ for i in range(n_params):
 
 # %%
 data = np.load('fits/data_to_fit_lst.npy', allow_pickle=True)
-idx = 116
+# %%
+idx = 5
 data_gen = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA,
