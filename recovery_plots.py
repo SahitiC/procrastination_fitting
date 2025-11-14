@@ -7,7 +7,7 @@ import gen_data
 
 # %%
 input_params_recovery = np.load(
-    "fits/input_params_recovery_em_dist.npy", allow_pickle=True)
+    "fits/input_params_recovery_em.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
     "fits/input_params_recovery_em_dist.npy", allow_pickle=True)
 recovery_em = np.load("fits/recovery_em_dist.npy",
@@ -22,7 +22,7 @@ recovery_group_mle = np.load(
 em_recovered_params = np.stack([recovery_em['fit_participants'][i]['par_b']
                                 for i in range(len(input_params_recovery_em))])
 
-lim = [(0.8, 1.05), (0.6, 1.05), (-1.5, 0.05)]
+lim = [(0.0, 1.05), (0.0, 1.05), (-1.5, 0.05)]
 
 for i in range(3):
     plt.figure(figsize=(4, 4))

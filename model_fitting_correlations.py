@@ -70,7 +70,7 @@ data_full = pd.read_csv('zhang_ma_data.csv',
                         index_col=False)
 
 result_fit_mle = np.load(
-    "fits/fit_individual_mle_low_rextra.npy", allow_pickle=True)
+    "fits/fit_individual_mle.npy", allow_pickle=True)
 
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
@@ -100,6 +100,12 @@ for i in range(3):
                     result_fit_params[:, j])
         plt.title(f'Param {i} vs Param {j}')
 
+plt.figure(figsize=(4, 4))
+plt.hist(np.log(1/result_fit_params[:, 0]))
+plt.figure(figsize=(4, 4))
+a = result_fit_params[:, 0]
+a = np.where(a == 1, 0.99, a)
+plt.hist(1/(1-a))
 
 # %%
 fit_params_recoverable = np.load('fits/fit_params_mle_recoverable.npy',
@@ -115,6 +121,7 @@ fit_params = result_fit_params  # fit_params_recoverable
 data = data_full_filter  # data_recoverable
 
 discount_factors_log_empirical = np.array(data['DiscountRate_lnk'])
+discount_factors_empirical = np.exp(discount_factors_log_empirical)
 discount_factors_fitted = fit_params[:, 0]
 efficacy_fitted = fit_params[:, 1]
 efforts_fitted = fit_params[:, 2]
@@ -126,14 +133,16 @@ laziness = np.array(data['ReasonProc_Laziness'])
 self_control = np.array(data['SelfControlScore'])
 
 discount_factors_empirical = np.exp(discount_factors_log_empirical)
+# correlations from paper
 get_correlation(discount_factors_log_empirical, discount_factors_fitted)
+get_correlation(discount_factors_empirical, discount_factors_fitted)
 get_correlation(proc_mean, discount_factors_fitted)
 get_correlation(proc_mean, efficacy_fitted)
 get_correlation(proc_mean, efforts_fitted)
 get_correlation(impulsivity_score, discount_factors_fitted)
 get_correlation(self_control, discount_factors_fitted)
-get_correlation(task_aversiveness, np.abs(efforts_fitted))
-get_correlation(laziness, np.abs(efforts_fitted))
+get_correlation(task_aversiveness, efforts_fitted)
+get_correlation(laziness, efforts_fitted)
 get_correlation(time_management, efficacy_fitted)
 
 # %% task based measures
@@ -162,6 +171,15 @@ model = smf.ols(
     data=df_z_scored).fit()
 
 print(model.summary())
+
+# %%
+# correlations from paper
+delay = mucw  # completion_week
+get_correlation(proc_mean, delay)
+get_correlation(discount_factors_log_empirical, delay)
+get_correlation(discount_factors_empirical, delay)
+get_correlation(discount_factors_log_empirical, proc_mean)
+get_correlation(discount_factors_empirical, proc_mean)
 
 # %%
 df = pd.DataFrame({'PASS': proc_mean,

@@ -332,8 +332,8 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    n_participants = 150
-    n_trials = 10
+    n_participants = 2
+    n_trials = 1
     paralellise = False
     data = []
     input_params = []
