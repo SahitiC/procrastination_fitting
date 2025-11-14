@@ -275,7 +275,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                 initial_guess = (old_participant_fits[i]
                                  if iteration > 0 else None)
                 args_list.append(
-                    (data[i], model_name, pop_means, pop_vars, initial_guess))
+                    ([data[i]], model_name, pop_means, pop_vars, initial_guess))
             with ProcessPoolExecutor() as executor:
                 fit_participants = list(executor.map(fit_single, args_list))
         else:
@@ -283,7 +283,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                 # initial guess from previous iteration
                 initial_guess = (old_participant_fits[i]
                                  if iteration > 0 else None)
-                fit_participant = MAP(data[i], model_name, pop_means,
+                fit_participant = MAP([data[i]], model_name, pop_means,
                                       pop_vars, initial_guess=initial_guess)
                 fit_participants.append(fit_participant)
 
@@ -333,13 +333,13 @@ if __name__ == "__main__":
     np.random.seed(0)
 
     n_participants = 150
-    n_trials = 1
-    paralellise = True
+    n_trials = 10
+    paralellise = False
     data = []
     input_params = []
     param_ranges = get_param_ranges('basic')
     means = [2.905,  1.546, -1.221]  # sample means
-    vars = np.array([0.010, 0.023, 0.301])  # sample variances
+    vars = np.array([6.25, 6.25, 3])  # sample variances
     samples = np.random.multivariate_normal(
         means, np.diag(np.sqrt(vars)), n_participants)
     for i in range(n_participants):
