@@ -4,7 +4,6 @@ import pymc as pm
 import pytensor
 import pytensor.tensor as pt
 from pytensor.graph import Apply, Op
-from scipy.optimize import approx_fprime
 import likelihoods
 import constants
 import gen_data
@@ -32,6 +31,11 @@ def log_likelihood(discount, efficacy, effort, data):
         constants.REWARD_THR, constants.REWARD_EXTRA,
         constants.REWARD_SHIRK, constants.BETA, constants.THR,
         constants.STATES_NO, [datum]) for datum in data]
+    # nllkhd = likelihoods.likelihood_basic_model(
+    #     params, constants.STATES, constants.ACTIONS, constants.HORIZON,
+    #     constants.REWARD_THR, constants.REWARD_EXTRA,
+    #     constants.REWARD_SHIRK, constants.BETA, constants.THR,
+    #     constants.STATES_NO, data)
 
     return -np.array(nllkhd)
 
@@ -39,28 +43,32 @@ def log_likelihood(discount, efficacy, effort, data):
 
 
 class LogLike(Op):
-    def make_node(self, discount, efficacy, effort, data) -> Apply:
+    def __init__(self, data):
+        self.data = data
+        super().__init__()
+
+    def make_node(self, discount, efficacy, effort) -> Apply:
         # Convert inputs to tensor variables
-        discount = pt.as_tensor(discount)
-        efficacy = pt.as_tensor(efficacy)
-        effort = pt.as_tensor(effort)
-        data = pt.as_tensor(data)
+        discount = pt.as_tensor_variable(discount)
+        efficacy = pt.as_tensor_variable(efficacy)
+        effort = pt.as_tensor_variable(effort)
+        # data = pt.as_tensor_variable(data, dtype="object")
 
-        inputs = [discount, efficacy, effort, data]
+        inputs = [discount, efficacy, effort]
 
-        outputs = [pt.dvector()]
+        outputs = [pt.vector()]
 
         return Apply(self, inputs, outputs)
 
     def perform(self, node: Apply, inputs: list[np.ndarray], outputs: list[list[None]]) -> None:
         # This is the method that compute numerical output
         # given numerical inputs. Everything here is numpy arrays
-        discount, efficacy, effort, data = inputs
-
+        discount, efficacy, effort = inputs
         # call our numpy log-likelihood function
-        loglike_eval = log_likelihood(discount, efficacy, effort, data)
+        loglike_eval = log_likelihood(
+            discount, efficacy, effort, self.data)
 
-        outputs[0][0] = np.asarray(loglike_eval).reshape(-1)
+        outputs[0][0] = np.asarray(loglike_eval)
 
 
 # %%
@@ -80,10 +88,10 @@ for i in range(n_participants):
     data.append(datum)
     input_params.append([discount_factor, efficacy, effort_work])
 
-loglike_op = LogLike()
+loglike_op = LogLike(data)
 test_out = loglike_op(input_params[0][0],
                       input_params[0][1],
-                      input_params[0][2], data)
+                      input_params[0][2])
 
 pytensor.dprint(test_out, print_type=True)
 print(test_out.eval())
@@ -91,9 +99,13 @@ log_likelihood(input_params[0][0],
                input_params[0][1],
                input_params[0][2], data)
 
+# %%
 
-def custom_dist_loglike(data, discount, efficacy, effort):
-    return loglike_op(discount, efficacy, effort, data)
+data = np.array(data)
+
+
+def custom_dist_loglike(obs, discount, efficacy, effort):
+    return loglike_op(discount, efficacy, effort)
 
 
 with pm.Model() as no_grad_model:
@@ -104,11 +116,22 @@ with pm.Model() as no_grad_model:
     effort = pm.Uniform('effort', lower=-10, upper=0, initval=-1)
 
     likelihood = pm.CustomDist(
-        "likelihood", discount, efficacy, effort, observed=data,
+        "likelihood", discount, efficacy, effort, observed=np.zeros(1),
         logp=custom_dist_loglike)
 
+# try compiling logp
 ip = no_grad_model.initial_point()
 print(ip)
-no_grad_model.compile_logp(vars=[likelihood], sum=False)(ip)
+print(no_grad_model.compile_logp(vars=[likelihood], sum=False)(ip))
+
+# test that extracting gradients fails
+try:
+    no_grad_model.compile_dlogp()
+except Exception as exc:
+    print(type(exc))
+
+# sample
+with no_grad_model:
+    idata_no_grad = pm.sample(3000, tune=1000)
 
 # %%
