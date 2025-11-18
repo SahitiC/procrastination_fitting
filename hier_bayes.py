@@ -132,6 +132,6 @@ except Exception as exc:
 
 # sample
 with no_grad_model:
-    idata_no_grad = pm.sample(3000, tune=1000)
+    idata_no_grad = pm.sample(1, tune=1)
 
 # %%
