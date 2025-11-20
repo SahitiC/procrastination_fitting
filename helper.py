@@ -1,5 +1,7 @@
 # %%
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def sample_initial_params(model_name, num_samples=1):
@@ -66,5 +68,26 @@ def trans_to_unbounded(pars_bounded, param_ranges):
             ratio = np.clip(ratio, 1e-9, 1 - 1e-9)
             unbounded_pars[i] = np.log(ratio / (1 - ratio))
     return unbounded_pars
+
+
+def plot_clustered_data(data, labels):
+    """
+    plot trajectories in each cluster given data and labels
+    """
+
+    for label in set(labels):
+        plt.figure(figsize=(4, 4), dpi=300)
+
+        for i, d in enumerate(data):
+            if labels[i] == label:
+                plt.plot(np.array(d) * 2, alpha=0.5)
+
+        sns.despine()
+        plt.xticks([0, 7, 15])
+        plt.yticks([0, 11, 14, 22])
+        plt.xlabel('time (weeks)')
+        plt.ylabel('research units \n completed')
+        plt.show()
+
 
 # %%
