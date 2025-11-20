@@ -14,6 +14,7 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
 from collections import defaultdict
 import constants
+import helper
 import matplotlib as mpl
 mpl.rcParams['font.size'] = 18
 
@@ -63,14 +64,30 @@ def safe_fix(text):
     return text
 
 
+def cumulative_progress_weeks(row):
+
+    return np.array(ast.literal_eval(row['cumulative progress weeks']))
+
+
 # %% import data
 data_relevant = pd.read_csv('data_preprocessed.csv', index_col=False)
 
 data_full = pd.read_csv('zhang_ma_data.csv',
                         index_col=False)
 
+data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
+    data_relevant['SUB_INDEX_194'])]
+
 result_fit_mle = np.load(
     "fits/fit_individual_mle.npy", allow_pickle=True)
+
+data_to_fit_cluster = np.load(
+    'fits/data_to_fit_lst_cluster.npy', allow_pickle=True)
+
+data_clustered = pd.read_csv('data_clustered.csv', index_col=False)
+
+result_fit_em_clusters = np.load(
+    "fits/fit_pop_clusters.npy", allow_pickle=True)
 
 # result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
@@ -80,8 +97,6 @@ nllkhd = sum([result_fit_mle[i]['neg_log_lik']
 BIC = BIC_mle = 2*nllkhd + \
     (len(result_fit_mle) * 3 * np.log(constants.HORIZON))
 # %%
-data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
-    data_relevant['SUB_INDEX_194'])]
 # result_fit_params = np.vstack(np.hstack(result_fit_mle[:, 1, :]))
 result_fit_params = np.array([result_fit_mle[i]['par_b']
                               for i in range(len(result_fit_mle))])
@@ -276,5 +291,30 @@ plt.scatter(embeddings_2d[:, 0], embeddings_2d[:, 1], c=labels_hier)
 plt.xlabel("dim 1")
 plt.ylabel("dim 2")
 plt.show()
+
+# %% model fitting to clusters
+clusters = 3
+bounds = [(0, 1), (0, 1), (None, 0)]
+pop_means = [result_fit_em_clusters[i]['pop_means'] for i in range(clusters)]
+pop_vars = [result_fit_em_clusters[i]['pop_vars'] for i in range(clusters)]
+pars_ind = []
+for i in range(clusters):
+    pars = np.array([
+        result_fit_em_clusters[i]['fit_participants'][j]['par_b']
+        for j in range(len(result_fit_em_clusters[i]['fit_participants']))])
+    pars_ind.append(pars)
+pop_means_bounded = [helper.trans_to_bounded(pop_means[i], bounds)
+                     for i in range(clusters)]
+for i in range(clusters):
+    fig, ax = plt.subplots(1, 3, figsize=(15, 6))
+    ax[0].hist(pars_ind[i][:, 0])
+    ax[1].hist(pars_ind[i][:, 1])
+    ax[2].hist(pars_ind[i][:, 2])
+    fig.suptitle(f'cluster {i+1}')
+    plt.tight_layout()
+    plt.show()
+
+timeseries = data_clustered.apply(cumulative_progress_weeks, axis=1)
+helper.plot_clustered_data(timeseries, np.array(data_clustered['labels']))
 
 # %%
