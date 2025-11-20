@@ -326,9 +326,9 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    n_participants = 150
+    n_participants = 250
     n_trials = 1
-    paralellise = False
+    paralellise = True
     data = []
     input_params = []
     param_ranges = get_param_ranges('basic')
