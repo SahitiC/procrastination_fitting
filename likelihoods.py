@@ -71,8 +71,6 @@ def calculate_likelihood(data, Q_values, beta, T, actions):
     else:
         data = data
 
-    Q_values.shape = (constants.STATES_NO, )
-
     for trajectories in data:
 
         for traj in trajectories:
@@ -82,9 +80,6 @@ def calculate_likelihood(data, Q_values, beta, T, actions):
                 partial = 0
                 # enumerate over all posible actions for the observed state
                 for i_a, action in enumerate(actions[traj[t]]):
-
-                    print(actions[traj[t]])
-                    print(Q_values[traj[t]])
 
                     partial += (
                         softmax_policy(Q_values[traj[t]]
