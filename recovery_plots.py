@@ -6,16 +6,16 @@ import constants
 import gen_data
 
 # %%
-input_params_recovery = np.load(
+input_params_recovery_mle = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
-    "fits/input_params_recovery_em_dist.npy", allow_pickle=True)
-recovery_em = np.load("fits/recovery_em_dist.npy",
+    "fits/input_params_recovery_em.npy", allow_pickle=True)
+recovery_em = np.load("fits/recovery_em.npy",
                       allow_pickle=True).item()
 recovery_individual_mle = np.load("fits/recovery_individual_mle.npy",
                                   allow_pickle=True)
 recovery_group_mle = np.load(
-    "fits/recovery_group_mle_dist.npy", allow_pickle=True).item()
+    "fits/recovery_group_mle.npy", allow_pickle=True).item()
 
 
 # %%
@@ -45,7 +45,7 @@ for i in range(3):
 # %%
 
 mle_recovered_params = np.stack([recovery_individual_mle[i]['par_b']
-                                for i in range(len(input_params_recovery))])
+                                for i in range(len(input_params_recovery_mle))])
 n_params = 3
 if n_params == 3:
     lim = [(-0.05, 1.05), (-0.05, 1.05), (-2, 0.05)]
@@ -56,10 +56,10 @@ elif n_params == 2:
 index = []
 for i in range(len(mle_recovered_params)):
     if (np.any(mle_recovered_params[i, :] == 0) and
-            np.all(input_params_recovery[i, :] != 0)):
+            np.all(input_params_recovery_mle[i, :] != 0)):
         index.append(i)
 final_result = np.delete(mle_recovered_params, index, axis=0)
-final_inputs = np.delete(input_params_recovery, index, axis=0)
+final_inputs = np.delete(input_params_recovery_mle, index, axis=0)
 
 if n_params == 3:
     mask = np.where(final_result[:, 2] > -10)

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import ast
 import ftfy
 from scipy.stats import pearsonr
+from scipy.stats import spearmanr
 import statsmodels.formula.api as smf
 from sentence_transformers import SentenceTransformer
 from sklearn.manifold import TSNE
@@ -21,14 +22,17 @@ mpl.rcParams['font.size'] = 18
 # %%
 
 
-def get_correlation(a, b):
+def get_correlation(a, b, method='pearson'):
     mask = np.isnan(a)
     a = a[~mask]
     b = b[~mask]
     mask2 = np.isnan(b)
     a = a[~mask2]
     b = b[~mask2]
-    print(pearsonr(a, b))
+    if method == 'pearson':
+        print(pearsonr(a, b))
+    elif method == 'spearman':
+        print(spearmanr(a, b))
     plt.figure()
     plt.scatter(a, b)
 
@@ -56,6 +60,22 @@ def get_mucw(row):
         arr = units
         mucw = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
         return mucw
+
+
+def get_mucd(row):
+    units = np.array(ast.literal_eval(
+        row['delta progress']))*2
+    units_cum = np.array(ast.literal_eval(
+        row['cumulative progress']))*2
+    if np.max(units_cum) >= 14:
+        a = np.where(units_cum >= 14)[0][0]
+        arr = units[:a+1]
+        mucd = np.sum(arr * np.arange(1, len(arr)+1)) / 14
+        return mucd
+    else:
+        arr = units
+        mucd = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
+        return mucd
 
 
 def safe_fix(text):
@@ -148,7 +168,7 @@ laziness = np.array(data['ReasonProc_Laziness'])
 self_control = np.array(data['SelfControlScore'])
 
 discount_factors_empirical = np.exp(discount_factors_log_empirical)
-# correlations from paper
+# correlations
 get_correlation(discount_factors_log_empirical, discount_factors_fitted)
 get_correlation(discount_factors_empirical, discount_factors_fitted)
 get_correlation(proc_mean, discount_factors_fitted)
@@ -160,15 +180,24 @@ get_correlation(task_aversiveness, efforts_fitted)
 get_correlation(laziness, efforts_fitted)
 get_correlation(time_management, efficacy_fitted)
 
+# spearman correlations
+get_correlation(discount_factors_log_empirical, discount_factors_fitted,
+                method='spearman')
+get_correlation(discount_factors_empirical, discount_factors_fitted,
+                method='spearman')
+
+
 # %% task based measures
 data_p = data_processed  # data_processed_recoverable
 
 completion_week = np.array(data_p.apply(get_completion_week, axis=1))
 mucw = np.array(data_p.apply(get_mucw, axis=1))
+mucd = np.array(data_p.apply(get_mucd, axis=1))
 
-delay = mucw  # completion_week
+delay = mucd  # completion_week
 
 get_correlation(completion_week, mucw)
+get_correlation(completion_week, mucd)
 
 df = pd.DataFrame({'delay': delay,
                    'disc': discount_factors_fitted,
@@ -189,7 +218,7 @@ print(model.summary())
 
 # %%
 # correlations from paper
-delay = mucw  # completion_week
+delay = mucd  # completion_week
 get_correlation(proc_mean, delay)
 get_correlation(discount_factors_log_empirical, delay)
 get_correlation(discount_factors_empirical, delay)
