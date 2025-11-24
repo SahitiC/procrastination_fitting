@@ -12,34 +12,40 @@ mpl.rcParams['lines.linewidth'] = 2
 
 # %% load data
 input_params_recovery_em = np.load(
-    "fits/input_params_recovery_em.npy", allow_pickle=True)
+    "fits/input_params_recovery_em_dist.npy", allow_pickle=True)
 input_data_recovery_em = np.load(
-    "fits/input_data_recovery_em.npy", allow_pickle=True)
-recovery_em = np.load("fits/recovery_em.npy", allow_pickle=True).item()
+    "fits/input_data_recovery_em_dist.npy", allow_pickle=True)
+recovery_em = np.load("fits/recovery_em_dist.npy", allow_pickle=True).item()
 recovery_params_em = np.stack([recovery_em['fit_participants'][i]['par_b']
-                            for i in range(len(input_params_recovery_em))])
+                               for i in range(len(input_params_recovery_em))])
+recovery_group_mle = np.load(
+    "fits/recovery_group_mle_dist.npy", allow_pickle=True).item()
+
+# %%
+input_params_recovery_mle = np.load(
+    "fits/input_params_recovery_em.npy", allow_pickle=True)
+input_data_recovery_mle = np.load(
+    "fits/input_data_recovery_em.npy", allow_pickle=True)
 recovery_mle = np.load("fits/recovery_individual_mle.npy", allow_pickle=True)
 recovery_params_mle = np.stack([recovery_mle[i]['par_b']
                                 for i in range(len(input_params_recovery_em))])
-recovery_group_mle = np.load(
-    "fits/recovery_group_mle.npy", allow_pickle=True).item()
+reward_extra = constants.REWARD_EXTRA  # 0
 
 # %% is likelihood flat
 np.random.seed(0)
 
-idx = 23
-reward_extra = 0 # constants.REWARD_EXTRA
+idx = 45
 # plot trajectories
 # true params
-plt.plot(input_data_recovery_em[idx, :][0], linewidth=2, color='black')
-discount_factor_mle, efficacy_mle, effort_work_mle = recovery_params_mle[idx, :]
-data = gen_data.gen_data_basic(
-    constants.STATES, constants.ACTIONS,  constants.HORIZON,
-    constants.REWARD_THR, reward_extra,
-    constants.REWARD_SHIRK, constants.BETA, discount_factor_mle, efficacy_mle,
-    effort_work_mle, 10, constants.THR, constants.STATES_NO)
-for i in range(10):
-    plt.plot(data[i], linestyle='dashed', color='gray')
+# plt.plot(input_data_recovery_em[idx, :][0], linewidth=2, color='black')
+# discount_factor_mle, efficacy_mle, effort_work_mle = recovery_params_mle[idx, :]
+# data = gen_data.gen_data_basic(
+#     constants.STATES, constants.ACTIONS,  constants.HORIZON,
+#     constants.REWARD_THR, reward_extra,
+#     constants.REWARD_SHIRK, constants.BETA, discount_factor_mle, efficacy_mle,
+#     effort_work_mle, 10, constants.THR, constants.STATES_NO)
+# for i in range(10):
+#     plt.plot(data[i], linestyle='dashed', color='gray')
 
 # recovered params
 plt.figure()
@@ -56,56 +62,56 @@ for i in range(10):
 discount_factor_in, efficacy_in, effort_work_in = input_params_recovery_em[idx, :]
 # plot likelihood varying discount factor
 discount_factors = np.linspace(0, 1, 50)
-traj = input_data_recovery_em[idx, :][0]
+traj = [input_data_recovery_em[idx, :][0]]
 nllkhd_df = [likelihoods.likelihood_basic_model(
     [df, efficacy_em, effort_work_em], constants.STATES,
     constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, reward_extra,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, traj) for df in discount_factors]
+    constants.STATES_NO, [traj]) for df in discount_factors]
 plt.figure()
 plt.plot(discount_factors, nllkhd_df)
 plt.xlabel('discount factor')
 
 discount_factors = np.linspace(0, 1, 50)
-traj = input_data_recovery_em[idx, :][0]
+traj = [input_data_recovery_em[idx, :][0]]
 nllkhd_df = [likelihoods.likelihood_basic_model(
     [df, efficacy_in, effort_work_in], constants.STATES,
     constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, reward_extra,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, traj) for df in discount_factors]
+    constants.STATES_NO, [traj]) for df in discount_factors]
 plt.figure()
 plt.plot(discount_factors, nllkhd_df)
 plt.xlabel('discount factor')
 
 efficacy = np.linspace(0, 1, 50)
-traj = input_data_recovery_em[idx, :][0]
+traj = [input_data_recovery_em[idx, :][0]]
 nllkhd_eff = [likelihoods.likelihood_basic_model(
     [discount_factor_em, eff, effort_work_em], constants.STATES,
     constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, reward_extra,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, traj) for eff in efficacy]
+    constants.STATES_NO, [traj]) for eff in efficacy]
 plt.figure()
 plt.plot(efficacy, nllkhd_eff)
 plt.xlabel('efficacy')
 
 efforts = np.linspace(-4, 0, 50)
-traj = input_data_recovery_em[idx, :][0]
+traj = [input_data_recovery_em[idx, :][0]]
 nllkhd_efft = [likelihoods.likelihood_basic_model(
     [discount_factor_em, efficacy_em, efft], constants.STATES,
     constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, reward_extra,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, traj) for efft in efforts]
+    constants.STATES_NO, [traj]) for efft in efforts]
 plt.figure()
 plt.plot(efforts, nllkhd_efft)
 plt.xlabel('effort work')
 
 print(f'true params {input_params_recovery_em[idx, :]}')
 print(f'recovered params em {recovery_params_em[idx, :]}')
-print(f'recovered params mle {recovery_params_mle[idx, :]}')
+# print(f'recovered params mle {recovery_params_mle[idx, :]}')
 
 # %% BICs
 
@@ -153,7 +159,7 @@ nllkhd_mles = [recovery_mle[i]['neg_log_lik']
 BIC_mle = 2*nllkhd_mle + \
     (data_samples * n_pars * np.log(constants.HORIZON))
 
-# peak nllkhds
+# %% peak nllkhds
 
 nllkhd_peaks = []
 for i in tqdm(range(len(input_data_recovery_em))):
@@ -165,7 +171,7 @@ for i in tqdm(range(len(input_data_recovery_em))):
         constants.ACTIONS, constants.HORIZON,
         constants.REWARD_THR, reward_extra,
         constants.REWARD_SHIRK, constants.BETA, constants.THR,
-        constants.STATES_NO, input_data_recovery_em[i, :][0])
+        constants.STATES_NO, [[input_data_recovery_em[i, :][0]]])
     if not np.isinf(nllkhd):
         nllkhd_peaks.append(nllkhd)
 
@@ -175,9 +181,52 @@ plt.figure()
 plt.scatter(nllkhd_mles, nllkhd_is)
 
 
+# %% likelihood at true params vs recovered params
+input_data = input_data_recovery_mle
+input_params = input_params_recovery_mle
+recovery_params = recovery_params_mle
+
+nllkhd_true = []
+nllkhd_recovered = []
+
+for i in tqdm(range(len(input_data))):
+
+    datum = input_data[i]
+    true_params = input_params[i]
+    recovered_params = recovery_params[i]
+
+    l_true = likelihoods.likelihood_basic_model(
+        true_params, constants.STATES,
+        constants.ACTIONS, constants.HORIZON,
+        constants.REWARD_THR, reward_extra,
+        constants.REWARD_SHIRK, constants.BETA, constants.THR,
+        constants.STATES_NO, [datum])
+    l_recovered = likelihoods.likelihood_basic_model(
+        recovered_params, constants.STATES,
+        constants.ACTIONS, constants.HORIZON,
+        constants.REWARD_THR, reward_extra,
+        constants.REWARD_SHIRK, constants.BETA, constants.THR,
+        constants.STATES_NO, [datum])
+
+    nllkhd_true.append(l_true)
+    nllkhd_recovered.append(l_recovered)
+
+plt.figure(figsize=(5, 5))
+plt.scatter(nllkhd_true, nllkhd_recovered)
+plt.xlabel('neg log lik at true params')
+plt.ylabel('neg log lik at \n recovered params')
+x_min = min(np.array(nllkhd_true).min(), np.array(nllkhd_recovered).min())
+x_max = max(np.array(nllkhd_true).max(), np.array(nllkhd_recovered).max())
+x = np.linspace(x_min, x_max, 100)
+y = x
+plt.plot(x, y, color='k', linestyle='dashed')
+plt.show()
+
 # %% total likelihood
+
 mean_params = empirical_bayes.trans_to_bounded(recovery_em['pop_means'],
                                                param_ranges)
+param_ranges = empirical_bayes.get_param_ranges('basic')
 
 discount_factors = np.linspace(0, 1, 50)
 nllkhd_df = [likelihoods.likelihood_basic_model(
@@ -185,7 +234,7 @@ nllkhd_df = [likelihoods.likelihood_basic_model(
     constants.STATES, constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, reward_extra,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, np.squeeze(input_data_recovery_em))
+    constants.STATES_NO, input_data_recovery_em)
     for df in discount_factors]
 plt.figure()
 plt.plot(discount_factors, nllkhd_df)
@@ -197,7 +246,7 @@ nllkhd_eff = [likelihoods.likelihood_basic_model(
     constants.STATES, constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, reward_extra,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, np.squeeze(input_data_recovery_em))
+    constants.STATES_NO, input_data_recovery_em)
     for eff in efficacys]
 plt.figure()
 plt.plot(efficacys, nllkhd_eff)
@@ -210,7 +259,7 @@ nllkhd_efft = [likelihoods.likelihood_basic_model(
     constants.STATES, constants.ACTIONS, constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA,
     constants.REWARD_SHIRK, constants.BETA, constants.THR,
-    constants.STATES_NO, np.squeeze(input_data_recovery_em))
+    constants.STATES_NO, input_data_recovery_em)
     for efft in efforts]
 plt.figure()
 plt.plot(efforts, nllkhd_efft)

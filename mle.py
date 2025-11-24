@@ -148,8 +148,8 @@ if __name__ == "__main__":
     # %% fit models using MLE
     np.random.seed(0)
 
-    n_participants = 150
-    n_trials = 1
+    n_participants = 2
+    n_trials = 2
     paralellise = True
     data = []
     input_params = []
@@ -169,7 +169,7 @@ if __name__ == "__main__":
         input_params.append([discount_factor, efficacy, effort_work])
 
     def fit_single_mle(datum):
-        return MLE(datum, model_name='basic', iters=30)
+        return MLE([datum], model_name='basic', iters=30)
 
     if parallelise:
         with ProcessPoolExecutor() as executor:
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     else:
         fit_participants = []
         for i in tqdm(range(n_participants)):
-            fit_participant = MLE(data[i], model_name='basic', iters=5)
+            fit_participant = MLE([data[i]], model_name='basic', iters=5)
             fit_participants.append(fit_participant)
 
     data = np.array(data, dtype=object)

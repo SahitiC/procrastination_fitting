@@ -1,10 +1,12 @@
 # %%
-"""
-pre-process data from Zhang and Ma (2024)
-"""
+
 import numpy as np
 import pandas as pd
 import ast
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import seaborn as sns
+import helper
 
 # %% functions
 
@@ -30,15 +32,18 @@ def process_delta_progress(row, semester_length_weeks):
 
 
 def cumulative_progress_weeks(row):
-    """
-    get cumulative progress in weeks from delta progress in weeks
-    """
+
     return list(np.cumsum(row['delta progress weeks']))
+
+
+def get_timeseries_to_cluster(row):
+
+    return row['cumulative progress weeks']
 
 
 # %% drop unwanted rows
 
-data = pd.read_csv('data/zhang_ma_data.csv')
+data = pd.read_csv('zhang_ma_data.csv')
 
 # drop the ones that discontinued (subj. 1, 95, 111)
 # they report to have discountinued in verbal response in 'way_allocate' column
@@ -82,4 +87,34 @@ data_subset = data_relevant[['SUB_INDEX_194', 'Total credits',
                              'delta progress weeks',
                              'cumulative progress weeks']]
 
-data_subset.to_csv('data/data_preprocessed.csv', index=False)
+data_subset.to_csv('data_preprocessed.csv', index=False)
+
+# %% cluster
+timeseries_to_cluster = list(data_relevant.apply(
+    get_timeseries_to_cluster, axis=1))
+
+inertia = []
+for cluster_size in range(1, 14):
+    print(cluster_size+1)
+    km = KMeans(n_clusters=cluster_size+1, n_init=10,
+                random_state=0)
+    labels = km.fit_predict(timeseries_to_cluster)
+    inertia.append(km.inertia_)
+plt.plot(inertia)
+
+km = KMeans(n_clusters=3, n_init=10, random_state=0, verbose=True)
+labels = km.fit_predict(timeseries_to_cluster)
+
+help.plot_clustered_data(timeseries_to_cluster, labels)
+
+data_clustered = pd.DataFrame(
+    {'cumulative progress weeks': timeseries_to_cluster,
+     'labels': labels})
+# convert np floats to floats in rows
+data_clustered["cumulative progress weeks"] = data_clustered[
+    "cumulative progress weeks"].apply(
+    lambda lst: [float(x) for x in lst])
+
+data_clustered.to_csv('data_clustered.csv', index=False)
+
+# %%

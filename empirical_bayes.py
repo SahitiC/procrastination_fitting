@@ -64,14 +64,8 @@ def sample_initial_params(model_name, num_samples=1):
     elif model_name == 'basic':
         discount_factor = np.random.logistic(0, 1)
         efficacy = np.random.logistic(0, 1)
-        effort_work = np.random.normal(loc=-1.2, scale=1.2)
+        effort_work = -1 * np.random.exponential(0.5)
         pars = [discount_factor, efficacy, effort_work]
-
-    # elif model_name == 'basic':
-    #     discount_factor = np.random.uniform(0, 1)
-    #     efficacy = np.random.uniform(0, 1)
-    #     effort_work = -1 * np.random.exponential(0.5)
-    #     pars = [discount_factor, efficacy, effort_work]
 
     return pars
 
@@ -254,8 +248,8 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
     param_ranges = get_param_ranges(model_name)
 
     # initialise prior
-    pop_means = np.zeros(n_params)  # or np.random.randn(n_params)
-    pop_vars = np.ones(n_params) * 100
+    pop_means = np.array([2.905,  1.546, -1.221])  # np.zeros(n_params)
+    pop_vars = np.array([6.25, 6.25, 3])  # np.ones(n_params) * 100
     total_llkhd = 0
 
     num_participants = len(data)
@@ -275,7 +269,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                 initial_guess = (old_participant_fits[i]
                                  if iteration > 0 else None)
                 args_list.append(
-                    (data[i], model_name, pop_means, pop_vars, initial_guess))
+                    ([data[i]], model_name, pop_means, pop_vars, initial_guess))
             with ProcessPoolExecutor() as executor:
                 fit_participants = list(executor.map(fit_single, args_list))
         else:
@@ -283,7 +277,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                 # initial guess from previous iteration
                 initial_guess = (old_participant_fits[i]
                                  if iteration > 0 else None)
-                fit_participant = MAP(data[i], model_name, pop_means,
+                fit_participant = MAP([data[i]], model_name, pop_means,
                                       pop_vars, initial_guess=initial_guess)
                 fit_participants.append(fit_participant)
 
@@ -332,56 +326,41 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    n_participants = 40
-    n_trials = 5
+    n_participants = 250
+    n_trials = 1
     paralellise = True
     data = []
     input_params = []
+    param_ranges = get_param_ranges('basic')
+    means = np.array([2.905,  1.546, -1.221])  # sample means
+    vars = np.array([6.25, 6.25, 3])  # sample variances
+    samples = np.random.multivariate_normal(
+        means, np.diag(np.sqrt(vars)), n_participants)
     for i in range(n_participants):
-        [discount_factor, efficacy, effort_work] = sample_params(
-            'basic')
+
+        [discount_factor, efficacy, effort_work] = trans_to_bounded(
+            samples[i, :], param_ranges)
         datum = gen_data.gen_data_basic(
             constants.STATES, constants.ACTIONS,  constants.HORIZON,
             constants.REWARD_THR, constants.REWARD_EXTRA,
             constants.REWARD_SHIRK, constants.BETA, discount_factor, efficacy,
             effort_work, n_trials, constants.THR, constants.STATES_NO)
-        # alpha, beta = sample_params('rl-basic')
-        # datum = gen_data.gen_data_rl_basic(n_trials=50, alpha=alpha, beta=beta)
-        # input_params.append([alpha, beta])
         data.append(datum)
         input_params.append([discount_factor, efficacy, effort_work])
 
     fit_pop = em(data, model_name='basic', max_iter=20, tol=0.01,
                  parallelise=paralellise)
     print(fit_pop)
-    # np.save("recovery_em.npy", fit_pop, allow_pickle=True)
+    np.save("recovery_em_dist.npy", fit_pop, allow_pickle=True)
 
-    # data = np.array(data, dtype=object)
-    # np.save('input_data_recovery.npy', data)
-    # input_params = np.array(input_params, dtype=object)
-    # np.save('input_params_recovery.npy', input_params)
-
-    # %% run MLE for individuals
-
-    def fit_single_mle(datum):
-        return MAP(datum, model_name='basic', iters=20, only_mle=True)
-    if paralellise:
-        with ProcessPoolExecutor() as executor:
-            fit_participants = list(tqdm(
-                executor.map(fit_single_mle, data)))
-    else:
-        fit_participants = []
-        for i in tqdm(range(n_participants)):
-            fit_participant = MAP(data[i], model_name='basic', iters=5,
-                                  only_mle=True)
-            fit_participants.append(fit_participant)
-
-    print(fit_participants)
-    np.save("recovery_individual_mle.npy", fit_participants, allow_pickle=True)
+    data = np.array(data, dtype=object)
+    np.save('input_data_recovery_em_dist.npy', data)
+    input_params = np.array(input_params, dtype=object)
+    np.save('input_params_recovery_em_dist.npy', input_params)
 
     # %% run MLE for full data
     fit_pop_mle = MAP(data, model_name='basic', iters=40, only_mle=True)
     print(fit_pop_mle)
-    np.save("recovery_group_mle.npy", fit_pop_mle, allow_pickle=True)
+    np.save("recovery_group_mle_dist.npy", fit_pop_mle, allow_pickle=True)
 
 # %%

@@ -6,11 +6,12 @@ import constants
 import gen_data
 
 # %%
-input_params_recovery = np.load(
+input_params_recovery_mle = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
 input_params_recovery_em = np.load(
     "fits/input_params_recovery_em.npy", allow_pickle=True)
-recovery_em = np.load("fits/recovery_em.npy", allow_pickle=True).item()
+recovery_em = np.load("fits/recovery_em.npy",
+                      allow_pickle=True).item()
 recovery_individual_mle = np.load("fits/recovery_individual_mle.npy",
                                   allow_pickle=True)
 recovery_group_mle = np.load(
@@ -21,7 +22,7 @@ recovery_group_mle = np.load(
 em_recovered_params = np.stack([recovery_em['fit_participants'][i]['par_b']
                                 for i in range(len(input_params_recovery_em))])
 
-lim = [(-0.05, 1.05), (-0.05, 1.05), (-1.5, 0.05)]
+lim = [(0.0, 1.05), (0.0, 1.05), (-1.5, 0.05)]
 
 for i in range(3):
     plt.figure(figsize=(4, 4))
@@ -44,7 +45,7 @@ for i in range(3):
 # %%
 
 mle_recovered_params = np.stack([recovery_individual_mle[i]['par_b']
-                                for i in range(len(input_params_recovery))])
+                                for i in range(len(input_params_recovery_mle))])
 n_params = 3
 if n_params == 3:
     lim = [(-0.05, 1.05), (-0.05, 1.05), (-2, 0.05)]
@@ -55,10 +56,10 @@ elif n_params == 2:
 index = []
 for i in range(len(mle_recovered_params)):
     if (np.any(mle_recovered_params[i, :] == 0) and
-            np.all(input_params_recovery[i, :] != 0)):
+            np.all(input_params_recovery_mle[i, :] != 0)):
         index.append(i)
 final_result = np.delete(mle_recovered_params, index, axis=0)
-final_inputs = np.delete(input_params_recovery, index, axis=0)
+final_inputs = np.delete(input_params_recovery_mle, index, axis=0)
 
 if n_params == 3:
     mask = np.where(final_result[:, 2] > -10)
@@ -89,8 +90,8 @@ for i in range(n_params):
                     final_result[:, j])
         plt.title(f'Param {i} vs Param {j}')
 # %%
-fit_params = np.load("fits/fit_params_mle.npy", allow_pickle=True)
-recovered_fits = np.load("fits/recovery_fits_mle.npy",
+fit_params = np.load("fits/fit_params_mle_low_rextra.npy", allow_pickle=True)
+recovered_fits = np.load("fits/recovery_fits_mle_low_rextra.npy",
                          allow_pickle=True)
 n_params = 3
 if n_params == 3:
@@ -98,7 +99,7 @@ if n_params == 3:
 elif n_params == 2:
     lim = [(-0.05, 1.05), (-5, 0.05)]
 
-tolerance = [0.4, 0.4, 1.8]
+tolerance = [0.45, 0.45, 1.8]
 
 recovered_fit_params = np.stack([recovered_fits[i]['par_b']
                                  for i in range(len(fit_params))])
@@ -144,7 +145,8 @@ for i in range(n_params):
 
 # %%
 data = np.load('fits/data_to_fit_lst.npy', allow_pickle=True)
-idx = 116
+# %%
+idx = 5
 data_gen = gen_data.gen_data_basic(
     constants.STATES, constants.ACTIONS,  constants.HORIZON,
     constants.REWARD_THR, constants.REWARD_EXTRA,
