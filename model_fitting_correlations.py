@@ -132,8 +132,8 @@ get_correlation(proc_mean, efficacy_fitted)
 get_correlation(proc_mean, efforts_fitted)
 get_correlation(impulsivity_score, discount_factors_fitted)
 get_correlation(self_control, discount_factors_fitted)
-get_correlation(task_aversiveness, np.abs(efforts_fitted))
-get_correlation(laziness, np.abs(efforts_fitted))
+get_correlation(task_aversiveness, efforts_fitted)
+get_correlation(laziness, efforts_fitted)
 get_correlation(time_management, efficacy_fitted)
 
 # %% task based measures
