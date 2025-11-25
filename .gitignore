@@ -6,3 +6,5 @@ __pycache__/
 *.asv
 *.log
 *.docx
+fit_stats
+profile_summary_cbm_lap.pdf
