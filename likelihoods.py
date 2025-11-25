@@ -288,9 +288,7 @@ def likelihood_basic_model(x,
         states, actions, horizon, discount_factor,
         total_reward_func, total_reward_func_last, T)
 
-    q = pad_Q_values(Q_values)
-
-    nllkhd = calculate_likelihood(data, q, beta, T, actions)
+    nllkhd = calculate_likelihood(data, Q_values, beta, T, actions)
 
     return nllkhd
 
