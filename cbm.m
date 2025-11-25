@@ -7,7 +7,7 @@ if count(py.sys.path, folder) == 0
 end
 
 n_trials = int32(1);
-n_participants = int32(1);
+n_participants = int32(50);
 py_params = py.helper.sample_params(n_participants);
 
 py_data = py.gen_data.simulate(py_params, n_trials, n_participants);
@@ -15,14 +15,18 @@ bounds = py.list({py.tuple({0,1}), py.tuple({0,1}), py.tuple({py.None,0})});
 
 py_param_unbounded = py.helper.trans_to_unbounded(py_params{1}, bounds);
 
-% loglik_wrapper(py_param_unbounded, py_data{1})
+loglik_wrapper(py_param_unbounded, py_data{1})
 
+%%
 prior = struct('mean', zeros(3,1),'variance', [6.25; 6.25; 1]);
 fname = 'lap_basic.mat';
 
 pconfig = struct();
 pconfig.numinit = 15;
-pconfig.numinit_med = 30;
+pconfig.numinit_med = 15;
+pconfig.numinit_up = 15;
+
+%%
 cbm_lap(py_data, @loglik_wrapper, prior, fname, pconfig)
 
 %% inspect cbm lap
