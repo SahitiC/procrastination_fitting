@@ -16,6 +16,7 @@ from scipy.spatial.distance import pdist, squareform
 from collections import defaultdict
 import constants
 import helper
+import gen_data
 import matplotlib as mpl
 mpl.rcParams['font.size'] = 18
 
@@ -345,5 +346,19 @@ for i in range(clusters):
 
 timeseries = data_clustered.apply(cumulative_progress_weeks, axis=1)
 helper.plot_clustered_data(timeseries, np.array(data_clustered['labels']))
+
+# simulate trajectories from fitted params
+for cluster in range(3):
+    pars = pars_ind[cluster]
+    plt.figure()
+    for i in range(len(pars)):
+        d = gen_data.gen_data_basic(
+            constants.STATES, constants.ACTIONS,  constants.HORIZON,
+            constants.REWARD_THR, constants.REWARD_EXTRA,
+            constants.REWARD_SHIRK, constants.BETA, pars[i, 0],
+            pars[i, 1], pars[i, 2], 1, constants.THR,
+            constants.STATES_NO)
+        plt.plot(d)
+
 
 # %%
