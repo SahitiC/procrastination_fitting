@@ -7,7 +7,7 @@ if count(py.sys.path, folder) == 0
 end
 
 n_trials = int32(1);
-n_participants = int32(50);
+n_participants = int32(10);
 py_params = py.helper.sample_params(n_participants);
 
 py_data = py.gen_data.simulate(py_params, n_trials, n_participants);
@@ -30,32 +30,48 @@ pconfig.numinit_up = 15;
 cbm_lap(py_data, @loglik_wrapper, prior, fname, pconfig)
 
 %% inspect cbm lap
-% fname = load('lap_basic.mat');
-% cbm = fname.cbm;
-% fitted = cbm.output.parameters;
-% bounded_fitted = zeros(n_participants, 3);
-% for i = 1:n_participants
-%     py_row = py.numpy.array(fitted(i, :));
-%     py_bounded = py.helper.trans_to_bounded(py_row, bounds);
-%     bounded_fitted(i, :) = double(py.array.array('d', py_bounded));
-% end
-% 
-% bounded_input = zeros(n_participants, 3);
-% for i = 1:n_participants
-%     py_row = py_params{i};
-%     bounded_input(i, :) = double(py.array.array('d', py_row));
-% end
-% 
-% for p = 1:3
-%     figure;
-%     scatter(bounded_input(:,p), bounded_fitted(:,p), 'filled');
-%     hold on;
-% end
+fname = load('lap_basic.mat');
+cbm_lap = fname.cbm;
+fitted = cbm_lap.output.parameters;
+n_participants = length(py_data);
+bounded_fitted = zeros(n_participants, 3);
+for i = 1:n_participants
+    py_row = py.numpy.array(fitted(i, :));
+    py_bounded = py.helper.trans_to_bounded(py_row, bounds);
+    bounded_fitted(i, :) = double(py.array.array('d', py_bounded));
+end
+
+bounded_input = zeros(n_participants, 3);
+for i = 1:n_participants
+    py_row = py_params{i};
+    bounded_input(i, :) = double(py.array.array('d', py_row));
+end
+
+for p = 1:3
+    figure;
+    scatter(bounded_input(:,p), bounded_fitted(:,p), 'filled');
+    axis square;
+    hold on;
+    plot(xlim,ylim,'-b');
+    hold on;
+    r = corr(bounded_input(:,p), bounded_fitted(:,p))
+end
 
 %% do cbm_hbi
-% models = {@loglik_wrapper};
-% fcbm_maps = {'lap_basic.mat'};
-% fname_hbi = 'hbi.mat';
-% 
-% cbm_hbi(py_data, models, fcbm_maps, fname_hbi)
+models = {@loglik_wrapper};
+fcbm_maps = {'lap_basic.mat'};
+fname_hbi = 'hbi.mat';
+
+config = struct();
+config.maxiter = 20;
+config.tolx = 0.05;
+
+optimconfigs = struct();
+optimconfigs.numinit = 15;
+optimconfigs.numinit_med = 15;
+optimconfigs.numinit_up = 15;
+
+%%
+
+cbm_hbi(py_data, models, fcbm_maps, fname_hbi, config, optimconfigs)
 
