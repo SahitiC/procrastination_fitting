@@ -48,7 +48,9 @@ if __name__ == "__main__":
     #     pickle.dump(data, f, protocol=5)
 
     def fit_single_mle(datum):
-        return mle.MLE(datum, model_name='basic', iters=30)
+        return mle.MLE([[datum]], model_name='basic', iters=50)
+        # return empirical_bayes.MAP([[datum]], model_name='basic', pop_means=np.array([0, 0, 0]),
+        # pop_vars=np.array([6.25, 6.25, 1]), iters=15, only_mle=False, initial_guess=None)
 
     with ProcessPoolExecutor() as executor:
         fit_participants = list(tqdm(

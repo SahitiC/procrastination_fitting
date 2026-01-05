@@ -6,6 +6,7 @@ import constants
 import gen_data
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
+import helper
 
 # %%
 
@@ -136,7 +137,10 @@ def MLE(data_participant, model_name, iters=5, initial_guess=None):
             nllkhd = res.fun
             final_res = res
 
+    diag_hess = helper.Hess_diag(neg_log_lik, final_res.x)
+
     fit_participant = {'par_b': final_res.x,
+                       'hess_diag': diag_hess,
                        'neg_log_lik': final_res.fun,
                        'success': final_res.success}
 

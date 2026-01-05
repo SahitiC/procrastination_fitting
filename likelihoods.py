@@ -28,7 +28,6 @@ def log_likelihood(params, data):
     return -nllkhd
 
 
-# @njit
 def calculate_likelihood_single(data, Q_values, beta, T, actions):
     """
     calculate negative likelihood of data under model given optimal Q_values,
