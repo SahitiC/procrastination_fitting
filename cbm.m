@@ -36,6 +36,26 @@ pconfig.numinit_up = 15;
 %%
 cbm_lap(py_data, @loglik_wrapper, prior, fname, pconfig)
 
+%% cbm lap actual data
+
+fname = load('lap_basic.mat');
+cbm_lap = fname.cbm;
+fitted = cbm_lap.output.parameters;
+n_participants = 160;
+
+bounded_fitted = zeros(n_participants, 3);
+for j = 1:3
+    figure;
+    for i = 1:n_participants
+        py_row = py.numpy.array(fitted(i, :));
+        py_bounded = py.helper.trans_to_bounded(py_row, bounds);
+        bounded_fitted(i, :) = double(py.array.array('d', py_bounded));
+    end
+    histogram(bounded_fitted(:, j));
+    axis square;
+end
+
+
 %% inspect cbm lap
 fname = load('lap_basic.mat');
 cbm_lap = fname.cbm;
@@ -103,6 +123,8 @@ for i = 1:n_participants
     py_bounded = py.helper.trans_to_bounded(py_row, bounds);
     bounded_fitted_hbi(i, :) = double(py.array.array('d', py_bounded));
 end
+
+%%
 
 for p = 1:3
     figure;
