@@ -350,7 +350,7 @@ helper.plot_clustered_data(timeseries, np.array(data_clustered['labels']))
 # simulate trajectories from fitted params
 for cluster in range(3):
     pars = pars_ind[cluster]
-    plt.figure()
+    plt.figure(figsize=(4, 4), dpi=300)
     for i in range(len(pars)):
         d = gen_data.gen_data_basic(
             constants.STATES, constants.ACTIONS,  constants.HORIZON,
@@ -358,7 +358,7 @@ for cluster in range(3):
             constants.REWARD_SHIRK, constants.BETA, pars[i, 0],
             pars[i, 1], pars[i, 2], 1, constants.THR,
             constants.STATES_NO)
-        plt.plot(d)
+        plt.plot(d[0], color='gray')
 
 
 # %%

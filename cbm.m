@@ -57,7 +57,7 @@ for j = 1:3
 end
 
 
-%% inspect cbm lap
+%% inspect cbm lap recovery
 fname = load('lap_basic.mat');
 cbm_lap = fname.cbm;
 fitted = cbm_lap.output.parameters;
@@ -123,6 +123,12 @@ for i = 1:n_participants
     py_row = py.numpy.array(fitted_hbi(i, :));
     py_bounded = py.helper.trans_to_bounded(py_row, bounds);
     bounded_fitted_hbi(i, :) = double(py.array.array('d', py_bounded));
+end
+
+for j = 1:3
+    figure;
+    histogram(bounded_fitted_hbi(:, j));
+    axis square;
 end
 
 %%
