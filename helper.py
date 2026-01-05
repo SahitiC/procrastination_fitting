@@ -90,4 +90,17 @@ def plot_clustered_data(data, labels):
         plt.show()
 
 
+def Hess_diag(fun, x, dx=1e-4):
+    """Evaluate the diagonal elements of the hessian matrix using the 3 point
+    central difference formula with spacing of dx between points."""
+    n = len(x)
+    hessdiag = np.zeros(n)
+    for i in range(n):
+        dx_i = np.zeros(n)
+        dx_i[i] = dx
+        hessdiag[i] = (fun(x + dx_i) + fun(x - dx_i) -
+                       2. * fun(x)) / (dx ** 2.)
+    return hessdiag
+
+
 # %%

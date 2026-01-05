@@ -100,7 +100,7 @@ data_full_filter = data_full[data_full['SUB_INDEX_194'].isin(
     data_relevant['SUB_INDEX_194'])]
 
 result_fit_mle = np.load(
-    "fits/fit_individual_mle.npy", allow_pickle=True)
+    "fits/fit_individual_mle_with_hess.npy", allow_pickle=True)
 
 data_to_fit_cluster = np.load(
     'fits/data_to_fit_lst_cluster.npy', allow_pickle=True)
@@ -110,7 +110,7 @@ data_clustered = pd.read_csv('data_clustered.csv', index_col=False)
 result_fit_em_clusters = np.load(
     "fits/fit_pop_clusters.npy", allow_pickle=True)
 
-# result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
+result_fit_em = np.load("fits/fit_pop_em.npy", allow_pickle=True).item()
 
 # %%
 nllkhd = sum([result_fit_mle[i]['neg_log_lik']
@@ -122,7 +122,10 @@ BIC = BIC_mle = 2*nllkhd + \
 result_fit_params = np.array([result_fit_mle[i]['par_b']
                               for i in range(len(result_fit_mle))])
 
-# np.save('fits/fit_params_mle_extended_ranges.npy',
+# result_fit_params = np.array([result_fit_em['fit_participants'][i]['par_b']
+#                               for i in range(len(result_fit_em))])
+
+# np.save('fits/fit_params_em.npy',
 #         result_fit_params, allow_pickle=True)
 
 for i in range(3):
