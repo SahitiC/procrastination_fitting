@@ -364,4 +364,4 @@ for cluster in range(3):
         plt.plot(d[0], color='gray')
 
 
-# %%
+# %% multivariate ols regressions
