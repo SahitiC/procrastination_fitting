@@ -363,5 +363,3 @@ for cluster in range(3):
             constants.STATES_NO)
         plt.plot(d[0], color='gray')
 
-
-# %% multivariate ols regressions

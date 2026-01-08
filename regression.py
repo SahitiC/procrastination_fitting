@@ -40,8 +40,9 @@ def integrand(*args):
     *xs, y_i, xhat_i, sigma_x_i, beta, intercept, sigma = args
     x = np.array(xs)
     integrand = (1/(np.prod(sigma_x_i)*sigma) *
-                 np.exp(-0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
-                        -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
+                 np.exp(
+                     -0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
+                     -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
     return integrand
 
 
@@ -283,7 +284,7 @@ if __name__ == "__main__":
     # %% regressions
 
     y, xhat, hess = drop_nans(
-        time_management, efficacy_fitted, diag_hess[:, 1])
+        completion_week, discount_factors_fitted, diag_hess[:, 0])
 
     xhat_reshaped = xhat.reshape(-1, 1)
 
@@ -315,5 +316,23 @@ if __name__ == "__main__":
     df = pd.DataFrame({'y': y})
     model0 = smf.ols(
         formula='y ~ 1', data=df).fit()
+
+# %% multivariate ols regressions
+
+y, disc, efficacy, effort = drop_nans(
+    mucw, discount_factors_fitted, efficacy_fitted,
+    efforts_fitted)
+
+df = pd.DataFrame({'y': y,
+                  'disc': disc,
+                   'efficacy': efficacy,
+                   'effort': effort})
+model1 = smf.ols(
+    formula='y ~ disc + efficacy + effort', data=df).fit()
+print(model1.summary())
+
+model0 = smf.ols(
+    formula='y ~ disc', data=df).fit()
+print(model0.summary())
 
 # %%
