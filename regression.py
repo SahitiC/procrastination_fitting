@@ -245,7 +245,7 @@ if __name__ == "__main__":
     # %% regressions
 
     y, xhat, hess = drop_nans(
-        proc_mean, discount_factors_fitted, diag_hess[:, 1])
+        completion_week, discount_factors_fitted, diag_hess[:, 0])
 
     xhat_reshaped = xhat.reshape(-1, 1)
 
@@ -260,5 +260,23 @@ if __name__ == "__main__":
     model = smf.ols(
         formula='y ~ xhat', data=df).fit()
     print(model.summary())
+
+# %% multivariate ols regressions
+
+y, disc, efficacy, effort = drop_nans(
+        mucw, discount_factors_fitted, efficacy_fitted,
+        efforts_fitted)
+
+df = pd.DataFrame({'y': y,
+                  'disc': disc,
+                  'efficacy': efficacy,
+                  'effort': effort})
+model1 = smf.ols(
+    formula='y ~ disc + efficacy + effort', data=df).fit()
+print(model1.summary())
+
+model0 = smf.ols(
+    formula='y ~ disc', data=df).fit()
+print(model0.summary())
 
 # %%
