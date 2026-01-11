@@ -1,4 +1,6 @@
 # %% imports
+import gen_data
+import constants
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -7,6 +9,7 @@ import matplotlib.pyplot as plt
 import ast
 import statsmodels.formula.api as smf
 from scipy.stats import pearsonr
+from scipy.stats import chi2
 
 # %% functions
 
@@ -39,8 +42,9 @@ def integrand(*args):
     *xs, y_i, xhat_i, sigma_x_i, beta, intercept, sigma = args
     x = np.array(xs)
     integrand = (1/(np.prod(sigma_x_i)*sigma) *
-                 np.exp(-0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
-                        -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
+                 np.exp(
+                     -0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
+                     -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
     return integrand
 
 
@@ -129,6 +133,43 @@ def fit_regression(y, xhat, sigma_x, bounds, opt_bounds, initial_guess):
     return result
 
 
+def fit_null_regression(y, opt_bounds, initial_guess):
+    """
+    Fit null regression model (intercept only) using MLE.
+
+    Parameters
+    ----------
+    y : array-like, shape (n_observations,)
+        Observed dependent variable.
+    opt_bounds : list of tuples
+        Bounds for the optimization parameters.
+    initial_guess : array-like, shape (2,), optional
+        Initial guess for the parameters: [intercept, sigma] 
+    Returns
+    -------
+    result : OptimizeResult
+        The optimization result represented as a `OptimizeResult` object.
+    """
+    def likelihood_i(pars, y_i):
+        intercept = pars[0]
+        sigma = pars[1]
+        ll_i = ((1/sigma) *
+                np.exp(-0.5 * ((y_i - intercept)/sigma)**2))
+        return ll_i
+
+    def negative_log_likelihood(pars, y):
+        nll = 0
+        for i in range(len(y)):
+            ll_i = likelihood_i(pars, y[i])
+            nll -= np.log(ll_i + 1e-10)  # add small constant to avoid log(0)
+        return nll
+
+    result = minimize(negative_log_likelihood, initial_guess,
+                      args=(y),
+                      bounds=opt_bounds)
+    return result
+
+
 def regression_model(y, xhat, sigma_x):
     pass
 
@@ -147,11 +188,27 @@ def get_mucw(row):
     if np.max(units_cum) >= 14:
         a = np.where(units_cum >= 14)[0][0]
         arr = units[:a+1]
+        if units_cum[a] > 14:
+            arr[-1] = 14 - units_cum[a-1]
         mucw = np.sum(arr * np.arange(1, len(arr)+1)) / 14
         return mucw
     else:
         arr = units
         mucw = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
+        return mucw
+
+
+def get_mucw_simulated(trajectory):
+    if np.max(trajectory) >= 14:
+        a = np.where(trajectory >= 14)[0][0]
+        arr = trajectory[:a+1]
+        if arr[-1] > 14:
+            arr[-1] = 14
+        mucw = (14*(len(arr)+1) - np.sum(arr))/14
+        return mucw
+    else:
+        arr = trajectory
+        mucw = (np.max(arr)*(len(arr)+1) - np.sum(arr))/np.max(arr)
         return mucw
 
 
@@ -249,28 +306,45 @@ if __name__ == "__main__":
 
     xhat_reshaped = xhat.reshape(-1, 1)
 
-    print(fit_regression(y, xhat_reshaped,
-                         (1/hess)**0.5,
-                         bounds=[(0, 1)],
-                         opt_bounds=[(None, None), (None, None), (1e-3, None)],
-                         initial_guess=[0.1, 0.1, 1]))
+    # error regression with one prdictor
+    result = fit_regression(y, xhat_reshaped,
+                            (1/hess)**0.5,
+                            bounds=[(0, 1)],
+                            opt_bounds=[
+                                (None, None), (None, None), (1e-3, None)],
+                            initial_guess=[0.1, 0.1, 1])
+    print(result)
 
+    # null regression model with only intercept
+    result_null = fit_null_regression(
+        y, opt_bounds=[(None, None), (1e-3, None)], initial_guess=[0.1, 1])
+    print(result_null)
+
+    # LRT
+    lr_stat = 2 * (result_null.fun - result.fun)
+    p_value = 1 - chi2.cdf(lr_stat, df=1)
+    print(lr_stat, p_value)
+
+    # corresponding OLS regressions
     df = pd.DataFrame({'y': y,
                        'xhat': xhat})
     model = smf.ols(
         formula='y ~ xhat', data=df).fit()
-    print(model.summary())
+
+    df = pd.DataFrame({'y': y})
+    model0 = smf.ols(
+        formula='y ~ 1', data=df).fit()
 
 # %% multivariate ols regressions
 
 y, disc, efficacy, effort = drop_nans(
-        proc_mean, discount_factors_fitted, efficacy_fitted,
-        efforts_fitted)
+    mucw, discount_factors_fitted, efficacy_fitted,
+    efforts_fitted)
 
 df = pd.DataFrame({'y': y,
                   'disc': disc,
-                  'efficacy': efficacy,
-                  'effort': effort})
+                   'efficacy': efficacy,
+                   'effort': effort})
 model1 = smf.ols(
     formula='y ~ disc + efficacy + effort', data=df).fit()
 print(model1.summary())
@@ -281,4 +355,52 @@ print(model0.summary())
 
 lr_stat, p_value, df_diff = model1.compare_lr_test(model0)
 print(lr_stat, p_value, df_diff)
+
+# %%
+
+y, disc, efficacy, effort = drop_nans(
+    mucw, discount_factors_fitted, efficacy_fitted,
+    efforts_fitted)
+plt.figure(figsize=(4, 4))
+plt.scatter(disc, y)
+plt.xlabel('discount factor')
+plt.figure(figsize=(4, 4))
+plt.scatter(efficacy, y)
+plt.xlabel('efficacy')
+plt.figure(figsize=(4, 4))
+plt.scatter(effort, y)
+plt.xlabel('effort')
+
+a = disc
+a = np.where(disc == 1, 0.99, disc)
+plt.figure(figsize=(4, 4))
+plt.scatter(1/(1-a), y)
+plt.xlabel('1/(1-disc)')
+
+# %% compare with simulated data for these parameters
+mucw_simulated = []
+for i in range(len(disc)):
+    data = gen_data.gen_data_basic(
+        constants.STATES, constants.ACTIONS, constants.HORIZON,
+        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
+        constants.BETA, disc[i], efficacy[i], effort[i],
+        5, constants.THR, constants.STATES_NO)
+    temp = []
+    for d in data:
+        temp.append(get_mucw_simulated(d))
+    mucw_i = np.nanmean(np.array(temp))
+    mucw_simulated.append(mucw_i)
+plt.figure(figsize=(4, 4))
+plt.scatter(disc, mucw_simulated)
+plt.xlabel('discount factor')
+plt.figure(figsize=(4, 4))
+plt.scatter(1/(1-a), mucw_simulated)
+plt.xlabel('1/(1-disc)')
+plt.figure(figsize=(4, 4))
+plt.scatter(efficacy, mucw_simulated)
+plt.xlabel('eficacy')
+plt.figure(figsize=(4, 4))
+plt.scatter(effort, mucw_simulated)
+plt.xlabel('effort')
+
 # %%
