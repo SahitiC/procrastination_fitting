@@ -264,7 +264,7 @@ if __name__ == "__main__":
 # %% multivariate ols regressions
 
 y, disc, efficacy, effort = drop_nans(
-        mucw, discount_factors_fitted, efficacy_fitted,
+        proc_mean, discount_factors_fitted, efficacy_fitted,
         efforts_fitted)
 
 df = pd.DataFrame({'y': y,
@@ -279,4 +279,6 @@ model0 = smf.ols(
     formula='y ~ disc', data=df).fit()
 print(model0.summary())
 
+lr_stat, p_value, df_diff = model1.compare_lr_test(model0)
+print(lr_stat, p_value, df_diff)
 # %%
