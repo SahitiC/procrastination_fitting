@@ -296,7 +296,7 @@ if __name__ == "__main__":
 
     # %% correlations
 
-    y, x = drop_nans(mucw, proc_mean)
+    y, x = drop_nans(proc_mean, discount_factors_empirical)
     pearsonr(y, x)
 
     # %% regressions
