@@ -41,7 +41,9 @@ def integrand(*args):
     """
     *xs, y_i, xhat_i, sigma_x_i, beta, intercept, sigma = args
     x = np.array(xs)
-    integrand = (1/(np.prod(sigma_x_i)*sigma) *
+    # uniform = 1 / np.prod([b - a for a, b in bounds])
+    integrand = (
+                (1/(np.prod(sigma_x_i)*sigma)) *
                  np.exp(
                      -0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
                      -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
@@ -96,6 +98,9 @@ def negative_log_likelihood(pars, y, xhat, sigma_x, bounds):
     """
 
     nll = 0
+    pairs = np.array(bounds)
+    diffs = pairs[:, 1] - pairs[:, 0]
+    exp = 0.5 + len(pairs)/2
     for i in range(len(y)):
         ll_i = likelihood_i(pars, y[i], xhat[i], sigma_x[i], bounds)
         nll -= np.log(ll_i + 1e-10)  # add small constant to avoid log(0)
@@ -153,7 +158,8 @@ def fit_null_regression(y, opt_bounds, initial_guess):
     def likelihood_i(pars, y_i):
         intercept = pars[0]
         sigma = pars[1]
-        ll_i = ((1/sigma) *
+        ll_i = (
+                (1/(sigma)) *
                 np.exp(-0.5 * ((y_i - intercept)/sigma)**2))
         return ll_i
 
@@ -302,7 +308,7 @@ if __name__ == "__main__":
     # %% regressions
 
     y, xhat, hess = drop_nans(
-        completion_week, discount_factors_fitted, diag_hess[:, 0])
+        proc_mean, discount_factors_fitted, diag_hess[:, 0])
 
     xhat_reshaped = xhat.reshape(-1, 1)
 
@@ -321,9 +327,11 @@ if __name__ == "__main__":
     print(result_null)
 
     # LRT
-    lr_stat = 2 * (result_null.fun - result.fun)
-    p_value = 1 - chi2.cdf(lr_stat, df=1)
-    print(lr_stat, p_value)
+    # lr_stat = 2 * (result_null.fun - result.fun)
+    # p_value = 1 - chi2.cdf(lr_stat, df=1)
+    # print(lr_stat, p_value)
+
+    # wald test for beta
 
     # corresponding OLS regressions
     df = pd.DataFrame({'y': y,
