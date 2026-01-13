@@ -90,8 +90,8 @@ for i in range(n_params):
                     final_result[:, j])
         plt.title(f'Param {i} vs Param {j}')
 # %%
-fit_params = np.load("fits/fit_params_mle_low_rextra.npy", allow_pickle=True)
-recovered_fits = np.load("fits/recovery_fits_mle_low_rextra.npy",
+fit_params = np.load("fits/fit_params_mle.npy", allow_pickle=True)
+recovered_fits = np.load("fits/recovery_fits_mle.npy",
                          allow_pickle=True)
 n_params = 3
 if n_params == 3:
