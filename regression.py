@@ -45,14 +45,15 @@ def integrand(*args):
     integrand = (
                 (1/(np.prod(sigma_x_i)*sigma)) *
         np.exp(
-                    -0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
+                    -0.5 * np.sum(((xhat_i - x)/sigma_x_i)**2) +
                     -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
     return integrand
 
 
 def likelihood_i(pars, y_i, xhat_i, sigma_x_i, bounds):
     """
-    Likelihood for a single observation (y_i, x_hat_i) given parameters.
+    Likelihood for a single observation (y_i, x_hat_i) given parameters. Avoid
+    for more than one predictor x_i due to compuational cost of integration.
 
     Parameters
     ----------
@@ -66,6 +67,11 @@ def likelihood_i(pars, y_i, xhat_i, sigma_x_i, bounds):
         Standard deviations of the measurement errors in predictors.
     bounds : list of tuples
         Integration bounds for each predictor.
+
+    Returns
+    -------
+    float
+        Likelihood for individual i.
     """
     p = len(xhat_i)  # no. of predictors
     beta = pars[0:p]
@@ -81,7 +87,8 @@ def likelihood_i(pars, y_i, xhat_i, sigma_x_i, bounds):
 
 def negative_log_likelihood(pars, y, xhat, sigma_x, bounds):
     """
-    Negative log likelihood for the entire dataset.
+    Negative log likelihood for the entire dataset. Avoid for more than one
+    predictor x_i due to compuational cost of integration.
 
     Parameters
     ----------
@@ -95,6 +102,11 @@ def negative_log_likelihood(pars, y, xhat, sigma_x, bounds):
         Standard deviations of the measurement errors in predictors.
     bounds : list of tuples
         Integration bounds for each predictor.
+
+    Returns
+    -------
+    float
+        Negative log-likelihood for the dataset.
     """
 
     nll = 0
@@ -346,70 +358,70 @@ if __name__ == "__main__":
 
 # %% multivariate ols regressions
 
-y, disc, efficacy, effort = drop_nans(
-    mucw, discount_factors_fitted, efficacy_fitted,
-    efforts_fitted)
+    y, disc, efficacy, effort = drop_nans(
+        mucw, discount_factors_fitted, efficacy_fitted,
+        efforts_fitted)
 
-df = pd.DataFrame({'y': y,
-                  'disc': disc,
-                   'efficacy': efficacy,
-                   'effort': effort})
-model1 = smf.ols(
-    formula='y ~ disc + efficacy + effort', data=df).fit()
-print(model1.summary())
+    df = pd.DataFrame({'y': y,
+                       'disc': disc,
+                       'efficacy': efficacy,
+                       'effort': effort})
+    model1 = smf.ols(
+        formula='y ~ disc + efficacy + effort', data=df).fit()
+    print(model1.summary())
 
-model0 = smf.ols(
-    formula='y ~ disc', data=df).fit()
-print(model0.summary())
+    model0 = smf.ols(
+        formula='y ~ disc', data=df).fit()
+    print(model0.summary())
 
-lr_stat, p_value, df_diff = model1.compare_lr_test(model0)
-print(lr_stat, p_value, df_diff)
+    lr_stat, p_value, df_diff = model1.compare_lr_test(model0)
+    print(lr_stat, p_value, df_diff)
 
-# %%
+    # %%
 
-y, disc, efficacy, effort = drop_nans(
-    mucw, discount_factors_fitted, efficacy_fitted,
-    efforts_fitted)
-plt.figure(figsize=(4, 4))
-plt.scatter(disc, y)
-plt.xlabel('discount factor')
-plt.figure(figsize=(4, 4))
-plt.scatter(efficacy, y)
-plt.xlabel('efficacy')
-plt.figure(figsize=(4, 4))
-plt.scatter(effort, y)
-plt.xlabel('effort')
+    y, disc, efficacy, effort = drop_nans(
+        mucw, discount_factors_fitted, efficacy_fitted,
+        efforts_fitted)
+    plt.figure(figsize=(4, 4))
+    plt.scatter(disc, y)
+    plt.xlabel('discount factor')
+    plt.figure(figsize=(4, 4))
+    plt.scatter(efficacy, y)
+    plt.xlabel('efficacy')
+    plt.figure(figsize=(4, 4))
+    plt.scatter(effort, y)
+    plt.xlabel('effort')
 
-a = disc
-a = np.where(disc == 1, 0.99, disc)
-plt.figure(figsize=(4, 4))
-plt.scatter(1/(1-a), y)
-plt.xlabel('1/(1-disc)')
+    a = disc
+    a = np.where(disc == 1, 0.99, disc)
+    plt.figure(figsize=(4, 4))
+    plt.scatter(1/(1-a), y)
+    plt.xlabel('1/(1-disc)')
 
-# %% compare with simulated data for these parameters
-mucw_simulated = []
-for i in range(len(disc)):
-    data = gen_data.gen_data_basic(
-        constants.STATES, constants.ACTIONS, constants.HORIZON,
-        constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-        constants.BETA, disc[i], efficacy[i], effort[i],
-        5, constants.THR, constants.STATES_NO)
-    temp = []
-    for d in data:
-        temp.append(get_mucw_simulated(d))
-    mucw_i = np.nanmean(np.array(temp))
-    mucw_simulated.append(mucw_i)
-plt.figure(figsize=(4, 4))
-plt.scatter(disc, mucw_simulated)
-plt.xlabel('discount factor')
-plt.figure(figsize=(4, 4))
-plt.scatter(1/(1-a), mucw_simulated)
-plt.xlabel('1/(1-disc)')
-plt.figure(figsize=(4, 4))
-plt.scatter(efficacy, mucw_simulated)
-plt.xlabel('eficacy')
-plt.figure(figsize=(4, 4))
-plt.scatter(effort, mucw_simulated)
-plt.xlabel('effort')
+    # %% compare with simulated data for these parameters
+    mucw_simulated = []
+    for i in range(len(disc)):
+        data = gen_data.gen_data_basic(
+            constants.STATES, constants.ACTIONS, constants.HORIZON,
+            constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
+            constants.BETA, disc[i], efficacy[i], effort[i],
+            5, constants.THR, constants.STATES_NO)
+        temp = []
+        for d in data:
+            temp.append(get_mucw_simulated(d))
+        mucw_i = np.nanmean(np.array(temp))
+        mucw_simulated.append(mucw_i)
+    plt.figure(figsize=(4, 4))
+    plt.scatter(disc, mucw_simulated)
+    plt.xlabel('discount factor')
+    plt.figure(figsize=(4, 4))
+    plt.scatter(1/(1-a), mucw_simulated)
+    plt.xlabel('1/(1-disc)')
+    plt.figure(figsize=(4, 4))
+    plt.scatter(efficacy, mucw_simulated)
+    plt.xlabel('eficacy')
+    plt.figure(figsize=(4, 4))
+    plt.scatter(effort, mucw_simulated)
+    plt.xlabel('effort')
 
 # %%
