@@ -44,9 +44,9 @@ def integrand(*args):
     # uniform = 1 / np.prod([b - a for a, b in bounds])
     integrand = (
                 (1/(np.prod(sigma_x_i)*sigma)) *
-                 np.exp(
-                     -0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
-                     -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
+        np.exp(
+                    -0.5 * np.sum(((x - xhat_i)/sigma_x_i)**2) +
+                    -0.5 * ((y_i - (np.dot(beta, x) + intercept))/sigma)**2))
     return integrand
 
 
@@ -98,9 +98,6 @@ def negative_log_likelihood(pars, y, xhat, sigma_x, bounds):
     """
 
     nll = 0
-    pairs = np.array(bounds)
-    diffs = pairs[:, 1] - pairs[:, 0]
-    exp = 0.5 + len(pairs)/2
     for i in range(len(y)):
         ll_i = likelihood_i(pars, y[i], xhat[i], sigma_x[i], bounds)
         nll -= np.log(ll_i + 1e-10)  # add small constant to avoid log(0)
@@ -138,7 +135,7 @@ def fit_regression(y, xhat, sigma_x, bounds, opt_bounds, initial_guess):
     return result
 
 
-def fit_null_regression(y, opt_bounds, initial_guess):
+def fit_null_regression(y, xhat, sigma_x, bounds, opt_bounds, initial_guess):
     """
     Fit null regression model (intercept only) using MLE.
 
@@ -155,29 +152,25 @@ def fit_null_regression(y, opt_bounds, initial_guess):
     result : OptimizeResult
         The optimization result represented as a `OptimizeResult` object.
     """
-    def likelihood_i(pars, y_i):
-        intercept = pars[0]
-        sigma = pars[1]
-        ll_i = (
-                (1/(sigma)) *
-                np.exp(-0.5 * ((y_i - intercept)/sigma)**2))
-        return ll_i
 
-    def negative_log_likelihood(pars, y):
-        nll = 0
+    def negative_log_likelihood_null(pars, y, xhat, sigma_x, bounds):
+        # pars = [intercept, sigma]
+        p = xhat.shape[1]
+        beta = np.zeros(p)
+        intercept, sigma = pars
+
+        nll = 0.0
         for i in range(len(y)):
-            ll_i = likelihood_i(pars, y[i])
-            nll -= np.log(ll_i + 1e-10)  # add small constant to avoid log(0)
+            ll_i = likelihood_i(
+                np.r_[beta, intercept, sigma],
+                y[i], xhat[i], sigma_x[i], bounds)
+            nll -= np.log(ll_i + 1e-10)
         return nll
 
-    result = minimize(negative_log_likelihood, initial_guess,
-                      args=(y),
+    result = minimize(negative_log_likelihood_null, initial_guess,
+                      args=(y, xhat, sigma_x, bounds),
                       bounds=opt_bounds)
     return result
-
-
-def regression_model(y, xhat, sigma_x):
-    pass
 
 
 def drop_nans(*arrays):
@@ -191,7 +184,7 @@ def get_mucw(row):
         row['delta progress weeks']))*2
     units_cum = np.array(ast.literal_eval(
         row['cumulative progress weeks']))*2
-    if np.max(units_cum) >= 14:
+    if np.max(units_cum) > 14:
         a = np.where(units_cum >= 14)[0][0]
         arr = units[:a+1]
         if units_cum[a] > 14:
@@ -205,7 +198,7 @@ def get_mucw(row):
 
 
 def get_mucw_simulated(trajectory):
-    if np.max(trajectory) >= 14:
+    if np.max(trajectory) > 14:
         a = np.where(trajectory >= 14)[0][0]
         arr = trajectory[:a+1]
         if arr[-1] > 14:
@@ -251,6 +244,20 @@ if __name__ == "__main__":
     result_diag_hess = np.array([result_fit_mle[i]['hess_diag']
                                 for i in range(len(result_fit_mle))])
 
+    # %% basic correlations
+
+    discount_factors_log_empirical = np.array(
+        data_full_filter['DiscountRate_lnk'])
+    discount_factors_empirical = np.exp(discount_factors_log_empirical)
+    impulsivity_score = np.array(data_full_filter['ImpulsivityScore'])
+    proc_mean = np.array(data_full_filter['AcadeProcFreq_mean'])
+    mucw = np.array(data_relevant.apply(get_mucw, axis=1))
+    completion_week = np.array(
+        data_relevant.apply(get_completion_week, axis=1))
+
+    y, x = drop_nans(completion_week, discount_factors_empirical)
+    pearsonr(y, x)
+
     # %% remove ppts with negative hess
 
     valid_indices = np.where(np.all(result_diag_hess > 0, axis=1))[0]
@@ -272,8 +279,6 @@ if __name__ == "__main__":
                         fit_params[:, j])
             plt.title(f'Param {i} vs Param {j}')
 
-    plt.figure(figsize=(4, 4))
-    plt.hist(np.log(1/fit_params[:, 0]))
     plt.figure(figsize=(4, 4))
     a = fit_params[:, 0]
     a = np.where(a == 1, 0.99, a)
@@ -300,15 +305,10 @@ if __name__ == "__main__":
     mucw = np.array(data_weeks.apply(get_mucw, axis=1))
     completion_week = np.array(data_weeks.apply(get_completion_week, axis=1))
 
-    # %% correlations
-
-    y, x = drop_nans(proc_mean, discount_factors_empirical)
-    pearsonr(y, x)
-
     # %% regressions
 
     y, xhat, hess = drop_nans(
-        proc_mean, discount_factors_fitted, diag_hess[:, 0])
+        time_management, efficacy_fitted, diag_hess[:, 1])
 
     xhat_reshaped = xhat.reshape(-1, 1)
 
@@ -321,17 +321,18 @@ if __name__ == "__main__":
                             initial_guess=[0.1, 0.1, 1])
     print(result)
 
-    # null regression model with only intercept
-    result_null = fit_null_regression(
-        y, opt_bounds=[(None, None), (1e-3, None)], initial_guess=[0.1, 1])
+    # null regression model with only intercept (and sigma_y ofc)
+    result_null = fit_null_regression(y, xhat_reshaped,
+                                      (1/hess)**0.5,
+                                      bounds=[(0, 1)],
+                                      opt_bounds=[(None, None), (1e-3, None)],
+                                      initial_guess=[0.1, 1])
     print(result_null)
 
     # LRT
-    # lr_stat = 2 * (result_null.fun - result.fun)
-    # p_value = 1 - chi2.cdf(lr_stat, df=1)
-    # print(lr_stat, p_value)
-
-    # wald test for beta
+    lr_stat = 2 * (result_null.fun - result.fun)
+    p_value = 1 - chi2.cdf(lr_stat, df=1)
+    print(lr_stat, p_value)
 
     # corresponding OLS regressions
     df = pd.DataFrame({'y': y,

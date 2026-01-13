@@ -18,7 +18,7 @@ import constants
 import helper
 import gen_data
 import matplotlib as mpl
-mpl.rcParams['font.size'] = 18
+mpl.rcParams['font.size'] = 16
 
 # %%
 
@@ -55,6 +55,8 @@ def get_mucw(row):
     if np.max(units_cum) >= 14:
         a = np.where(units_cum >= 14)[0][0]
         arr = units[:a+1]
+        if units_cum[a] > 14:
+            arr[-1] = 14 - units_cum[a-1]
         mucw = np.sum(arr * np.arange(1, len(arr)+1)) / 14
         return mucw
     else:
@@ -362,4 +364,3 @@ for cluster in range(3):
             pars[i, 1], pars[i, 2], 1, constants.THR,
             constants.STATES_NO)
         plt.plot(d[0], color='gray')
-
