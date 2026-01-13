@@ -26,7 +26,7 @@ n_participants = length(py_data);
 bounds = py.list({py.tuple({0,1}), py.tuple({0,1}), py.tuple({py.None,0})});
 
 %%
-prior = struct('mean', zeros(3,1),'variance', [10, 10, 10]); % 6.25; 6.25; 1
+prior = struct('mean', zeros(3,1),'variance', [100, 100, 100]); % 6.25; 6.25; 1
 fname = 'lap_basic.mat';
 
 pconfig = struct();
