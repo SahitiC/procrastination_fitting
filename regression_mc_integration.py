@@ -17,11 +17,11 @@ def log_gaussian(y, mean, sigma):
 def log_gaussian_vec(x, xhat, sigma_x):
     return (
         - np.log(np.prod(sigma_x))
-        - 0.5 * np.sum(((xhat - x)/sigma_x)**2))
+        - 0.5 * np.sum(((xhat - x)/sigma_x)**2, axis=1))
 
 
 def log_likelihood_i_mc(pars, y_i, xhat_i, sigma_x_i, bounds,
-                        sample_size_mc=1000):
+                        x_samples):
     """
     Likelihood for a single observation (y_i, x_hat_i) given parameters using
     Monte Carlo integration.
@@ -52,21 +52,15 @@ def log_likelihood_i_mc(pars, y_i, xhat_i, sigma_x_i, bounds,
     intercept = pars[p]
     sigma = pars[p+1]
 
-    x_samples = np.column_stack([
-        np.random.uniform(a, b, size=sample_size_mc)
-        for (a, b) in bounds])
-
-    print(x_samples)
-    print(xhat_i)
-    log_pxhat = log_gaussian_vec(x_samples, xhat_i, sigma_x_i).sum(axis=1)
+    log_pxhat = log_gaussian_vec(x_samples, xhat_i, sigma_x_i)
     mean = x_samples @ beta + intercept
     log_py = log_gaussian(y_i, mean, sigma)
 
-    return logsumexp(log_pxhat + log_py) - np.log(sample_size_mc)
+    return logsumexp(log_pxhat + log_py) - np.log(len(x_samples))
 
 
 def negative_log_likelihood(pars, y, xhat, sigma_x, bounds,
-                            sample_size_mc=1000):
+                            x_samples):
     """
     Negative log likelihood for the entire dataset. Avoid for more than one
     predictor x_i due to compuational cost of integration.
@@ -96,15 +90,19 @@ def negative_log_likelihood(pars, y, xhat, sigma_x, bounds,
     for i in range(len(y)):
         nll -= log_likelihood_i_mc(
             pars, y[i], xhat[i], sigma_x[i], bounds,
-            sample_size_mc=sample_size_mc)
+           x_samples)
     return nll
 
 
 def fit_regression(y, xhat, sigma_x, bounds, sample_size_mc,
                    opt_bounds, initial_guess):
-
+    
+    x_samples = np.column_stack([
+    np.random.uniform(a, b, size=500)
+    for (a, b) in bounds])
+    
     result = minimize(negative_log_likelihood, initial_guess,
-                      args=(y, xhat, sigma_x, bounds, sample_size_mc),
+                      args=(y, xhat, sigma_x, bounds, x_samples),
                       bounds=opt_bounds)
     return result
 
@@ -142,10 +140,26 @@ diag_hess = result_diag_hess[valid_indices]
 
 mucw = np.array(data_weeks.apply(regression.get_mucw, axis=1))
 proc_mean = np.array(data['AcadeProcFreq_mean'])
+discount_factors_log_empirical = np.array(data['DiscountRate_lnk'])
+discount_factors_empirical = np.exp(discount_factors_log_empirical)
 
 discount_factors_fitted = fit_params[:, 0]
 efficacy_fitted = fit_params[:, 1]
 efforts_fitted = fit_params[:, 2]
+
+# %%
+y, xhat, hess = regression.drop_nans(discount_factors_empirical, discount_factors_fitted,
+                                     diag_hess[:, 0])
+
+xhat_reshaped = xhat.reshape(-1, 1)
+
+result = fit_regression(y, xhat_reshaped,
+                        (1/hess)**0.5,
+                        bounds=[(0, 1)],
+                        sample_size_mc=5000,
+                        opt_bounds=[
+                            (None, None), (None, None), (1e-3, None)],
+                        initial_guess=[1, 1, 1])
 
 # %% regressions
 
