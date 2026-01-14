@@ -2,8 +2,13 @@
 import numpy as np
 import pandas as pd
 import regression
+import matplotlib.pyplot as plt
+import gen_data
+import constants
 from scipy.special import logsumexp
 from scipy.optimize import minimize
+import statsmodels.formula.api as smf
+from scipy.stats import chi2
 
 # %%
 
@@ -90,21 +95,56 @@ def negative_log_likelihood(pars, y, xhat, sigma_x, bounds,
     for i in range(len(y)):
         nll -= log_likelihood_i_mc(
             pars, y[i], xhat[i], sigma_x[i], bounds,
-           x_samples)
+            x_samples)
     return nll
 
 
-def fit_regression(y, xhat, sigma_x, bounds, sample_size_mc,
+def fit_regression(y, xhat, sigma_x, bounds, x_samples,
                    opt_bounds, initial_guess):
-    
-    x_samples = np.column_stack([
-    np.random.uniform(a, b, size=500)
-    for (a, b) in bounds])
-    
+
     result = minimize(negative_log_likelihood, initial_guess,
                       args=(y, xhat, sigma_x, bounds, x_samples),
                       bounds=opt_bounds)
     return result
+
+
+def fit_restricted_regression(y, xhat, sigma_x, bounds, x_samples,
+                              opt_bounds, initial_guess, restricted_indices):
+
+    def negative_log_likelihood_null(pars, y, xhat, sigma_x, bounds,
+                                     restricted_indices):
+
+        p = xhat.shape[1]
+        beta = np.zeros(p)
+        free_idx = ~np.isin(np.arange(p), restricted_indices)
+        beta[free_idx] = pars[0:free_idx.sum()]
+        intercept = pars[free_idx.sum()]
+        sigma = pars[free_idx.sum()+1]
+
+        pars_restricted = np.r_[beta, intercept, sigma]
+        nll = negative_log_likelihood(
+            pars_restricted, y, xhat, sigma_x, bounds, x_samples)
+
+        return nll
+
+    result = minimize(negative_log_likelihood_null, initial_guess,
+                      args=(y, xhat, sigma_x, bounds, restricted_indices),
+                      bounds=opt_bounds)
+    return result
+
+
+def get_mucw_simulated(trajectory):
+    if np.max(trajectory) > 14:
+        a = np.where(trajectory >= 14)[0][0]
+        arr = trajectory[:a+1]
+        if arr[-1] > 14:
+            arr[-1] = 14
+        mucw = (14*(len(arr)+1) - np.sum(arr))/14
+        return mucw
+    else:
+        arr = trajectory
+        mucw = (np.max(arr)*(len(arr)+1) - np.sum(arr))/np.max(arr)
+        return mucw
 
 # %% data
 
@@ -147,36 +187,137 @@ discount_factors_fitted = fit_params[:, 0]
 efficacy_fitted = fit_params[:, 1]
 efforts_fitted = fit_params[:, 2]
 
-# %%
-y, xhat, hess = regression.drop_nans(discount_factors_empirical, discount_factors_fitted,
-                                     diag_hess[:, 0])
+# %% test MC procedure with single regressor, compare to quad results
+y, xhat, hess = regression.drop_nans(
+    discount_factors_empirical, discount_factors_fitted, diag_hess[:, 0])
 
 xhat_reshaped = xhat.reshape(-1, 1)
+
+bounds = [(0, 1)]
+x_samples = np.column_stack([np.random.uniform(a, b, size=5000)
+                             for (a, b) in bounds])
 
 result = fit_regression(y, xhat_reshaped,
                         (1/hess)**0.5,
                         bounds=[(0, 1)],
-                        sample_size_mc=5000,
+                        x_samples=x_samples,
                         opt_bounds=[
                             (None, None), (None, None), (1e-3, None)],
                         initial_guess=[1, 1, 1])
 
 # %% regressions
+np.random.seed(0)
 
-y, x1, x2, x3, hess = regression.drop_nans(mucw, discount_factors_fitted,
+y, x1, x2, x3, hess = regression.drop_nans(proc_mean, discount_factors_fitted,
                                            efficacy_fitted, efforts_fitted,
                                            diag_hess)
 
 xhat = np.column_stack((x1, x2, x3))
 
+bounds = [(0, 1), (0, 1), (-7, 0)]
+x_samples = np.column_stack([np.random.uniform(a, b, size=5000)
+                             for (a, b) in bounds])
+
 result = fit_regression(
     y, xhat, (1/hess)**0.5,
     bounds=[(0, 1), (0, 1), (-7, 0)],
-    sample_size_mc=500,
+    x_samples=x_samples,
     opt_bounds=[(None, None), (None, None), (None, None),
                 (None, None), (1e-3, None)],
     initial_guess=[1, 1, 1, 0.1, 1])
 
-# np.save('result_regression.npy', result)
+# null models
+results_null = []
+for i in range(3):
+    results_null.append(fit_restricted_regression(
+        y, xhat, (1/hess)**0.5,
+        bounds=[(0, 1), (0, 1), (-7, 0)],
+        x_samples=x_samples,
+        opt_bounds=[(None, None), (None, None),
+                    (None, None), (1e-3, None)],
+        initial_guess=[1, 1, 0.1, 1],
+        restricted_indices=[i]))
+
+result_disc_only = fit_restricted_regression(
+    y, xhat, (1/hess)**0.5,
+    bounds=[(0, 1), (0, 1), (-7, 0)],
+    x_samples=x_samples,
+    opt_bounds=[(None, None), (None, None), (1e-3, None)],
+    initial_guess=[1, 0.1, 1],
+    restricted_indices=[1, 2])
+
+
+# %%
+for i in range(3):
+    lr_stat = 2 * (results_null[i].fun - result.fun)
+    p_value = 1 - chi2.cdf(lr_stat, df=1)
+    print(lr_stat, p_value)
+
+lr_stat = 2 * (result_disc_only.fun - result.fun)
+p_value = 1 - chi2.cdf(lr_stat, df=2)
+print(lr_stat, p_value)
+
+# %% ols regression
+df = pd.DataFrame({'y': y,
+                   'disc': x1,
+                   'efficacy': x2,
+                   'effort': x3})
+model1 = smf.ols(
+    formula='y ~ disc + efficacy + effort', data=df).fit()
+print(model1.summary())
+
+model0 = smf.ols(
+    formula='y ~ disc', data=df).fit()
+print(model0.summary())
+
+lr_stat, p_value, df_diff = model1.compare_lr_test(model0)
+print(lr_stat, p_value, df_diff)
+
+# %% plots
+
+y, disc, efficacy, effort = regression.drop_nans(
+    mucw, discount_factors_fitted, efficacy_fitted,
+    efforts_fitted)
+plt.figure(figsize=(4, 4))
+plt.scatter(disc, y)
+plt.xlabel('discount factor')
+plt.figure(figsize=(4, 4))
+plt.scatter(efficacy, y)
+plt.xlabel('efficacy')
+plt.figure(figsize=(4, 4))
+plt.scatter(effort, y)
+plt.xlabel('effort')
+
+a = disc
+a = np.where(disc == 1, 0.99, disc)
+plt.figure(figsize=(4, 4))
+plt.scatter(1/(1-a), y)
+plt.xlabel('1/(1-disc)')
+
+#  compare with simulated data for these parameters
+mucw_simulated = []
+for i in range(len(disc)):
+    data = gen_data.gen_data_basic(
+        constants.STATES, constants.ACTIONS, constants.HORIZON,
+        constants.REWARD_THR, constants.REWARD_EXTRA,
+        constants.REWARD_SHIRK, constants.BETA, disc[i], efficacy[i],
+        effort[i], 5, constants.THR, constants.STATES_NO)
+    temp = []
+    for d in data:
+        temp.append(get_mucw_simulated(d))
+    mucw_i = np.nanmean(np.array(temp))
+    mucw_simulated.append(mucw_i)
+plt.figure(figsize=(4, 4))
+plt.scatter(disc, mucw_simulated)
+plt.xlabel('discount factor')
+plt.figure(figsize=(4, 4))
+plt.scatter(1/(1-a), mucw_simulated)
+plt.xlabel('1/(1-disc)')
+plt.figure(figsize=(4, 4))
+plt.scatter(efficacy, mucw_simulated)
+plt.xlabel('eficacy')
+plt.figure(figsize=(4, 4))
+plt.scatter(effort, mucw_simulated)
+plt.xlabel('effort')
 
 # %%
