@@ -145,7 +145,7 @@ plt.figure(figsize=(4, 4))
 plt.hist(np.log(1/result_fit_params[:, 0]))
 plt.figure(figsize=(4, 4))
 a = result_fit_params[:, 0]
-a = np.where(a == 1, 0.99, a)
+a = np.where(a == 1, 0.999, a)
 plt.hist(1/(1-a))
 
 # %%

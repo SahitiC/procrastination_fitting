@@ -1,6 +1,4 @@
 # %% imports
-import gen_data
-import constants
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -27,7 +25,7 @@ def integrand(*args):
         Variables of integration. Latent predictors in the regression model.
     y_i : float
         Observed dependent variable.
-    xhat_i : array-like, shape (p,)           
+    xhat_i : array-like, shape (p,)       
         Observed estimates of the predictors with measurement error.
     beta : array-like, shape (p,)
         Regression coefficients.
@@ -158,7 +156,7 @@ def fit_null_regression(y, xhat, sigma_x, bounds, opt_bounds, initial_guess):
     opt_bounds : list of tuples
         Bounds for the optimization parameters.
     initial_guess : array-like, shape (2,), optional
-        Initial guess for the parameters: [intercept, sigma] 
+        Initial guess for the parameters: [intercept, sigma]
     Returns
     -------
     result : OptimizeResult
@@ -279,7 +277,7 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(4, 4))
     a = fit_params[:, 0]
-    a = np.where(a == 1, 0.99, a)
+    a = np.where(a == 1, 0.999, a)
     plt.hist(1/(1-a))
 
     # %% variables

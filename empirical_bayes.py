@@ -248,8 +248,8 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
     param_ranges = get_param_ranges(model_name)
 
     # initialise prior
-    pop_means = np.array([2.905,  1.546, -1.221])  # np.zeros(n_params)
-    pop_vars = np.array([6.25, 6.25, 3])  # np.ones(n_params) * 100
+    pop_means = np.zeros(n_params)  # np.array([2.905,  1.546, -1.221])  #
+    pop_vars = np.ones(n_params) * 10  # np.array([6.25, 6.25, 1])  #
     total_llkhd = 0
 
     num_participants = len(data)
@@ -279,6 +279,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                                  if iteration > 0 else None)
                 fit_participant = MAP([data[i]], model_name, pop_means,
                                       pop_vars, initial_guess=initial_guess)
+                print(fit_participant['diag_hess'])
                 fit_participants.append(fit_participant)
 
         # M-step
@@ -286,6 +287,7 @@ def em(data, model_name, max_iter=20, tol=1e-3, parallelise=False):
                            for fit_participant in fit_participants])
         diag_hess = np.array([fit_participant['diag_hess']
                               for fit_participant in fit_participants])
+        print(diag_hess)
         new_pop_means = np.mean(pars_U, axis=0)
         new_pop_vars = np.mean(pars_U**2.+1./diag_hess,
                                axis=0)-new_pop_means**2.
@@ -328,12 +330,12 @@ if __name__ == "__main__":
 
     n_participants = 250
     n_trials = 1
-    paralellise = True
+    paralellise = False
     data = []
     input_params = []
     param_ranges = get_param_ranges('basic')
-    means = np.array([2.905,  1.546, -1.221])  # sample means
-    vars = np.array([6.25, 6.25, 3])  # sample variances
+    means = np.zeros(3)  # np.array([2.905,  1.546, -1.221])  # sample means
+    vars = np.array([6.25, 6.25, 1])  # sample variances
     samples = np.random.multivariate_normal(
         means, np.diag(np.sqrt(vars)), n_participants)
     for i in range(n_participants):
