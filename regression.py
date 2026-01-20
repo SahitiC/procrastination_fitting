@@ -425,3 +425,40 @@ if __name__ == "__main__":
     plt.xlabel('effort')
 
 # %%
+from sklearn.cross_decomposition import CCA
+
+df = pd.DataFrame({'pass': proc_mean,
+                  'disc_emp': discount_factors_empirical,
+                  'impulsivity': impulsivity_score,
+                  'self_control': self_control,
+                  'time_man': time_management,
+                  'task_avers': task_aversiveness,
+                  'disc': discount_factors_fitted,
+                  'efficacy': efficacy_fitted,
+                  'effort': efforts_fitted})
+
+df = df.dropna()
+df = (df-df.mean())/df.std()
+
+X = df.iloc[:, 0:6]
+Y = df.iloc[:, 6:9]
+
+cca = CCA(n_components=2)
+cca.fit(X, Y)
+X_c, Y_c = cca.transform(X, Y)
+score = cca.score(X, Y)
+
+plt.figure()
+plt.scatter(X_c[:, 0], Y_c[:, 0])
+print(pearsonr(X_c[:, 0], Y_c[:, 0]))
+plt.figure()
+plt.scatter(X_c[:, 1], Y_c[:, 1])
+print(pearsonr(X_c[:, 1], Y_c[:, 1]))
+
+print(cca.x_loadings_)
+print(cca.y_loadings_)
+
+print(cca.x_weights_)
+print(cca.y_weights_)
+
+# %%
