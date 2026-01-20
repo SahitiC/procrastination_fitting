@@ -189,6 +189,24 @@ def drop_nans(*arrays):
     return tuple(arr[~mask] for arr in arrays)
 
 
+def get_mucd(row):
+    units = np.array(ast.literal_eval(
+        row['delta progress']))*2
+    units_cum = np.array(ast.literal_eval(
+        row['cumulative progress']))*2
+    if np.max(units_cum) > 14:
+        a = np.where(units_cum >= 14)[0][0]
+        arr = units[:a+1]
+        if units_cum[a] > 14:
+            arr[-1] = 14 - units_cum[a-1]
+        mucd = np.sum(arr * np.arange(1, len(arr)+1)) / 14
+        return mucd
+    else:
+        arr = units
+        mucd = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
+        return mucd
+
+
 def get_mucw(row):
     units = np.array(ast.literal_eval(
         row['delta progress weeks']))*2
@@ -246,8 +264,10 @@ if __name__ == "__main__":
         data_full_filter['DiscountRate_lnk'])
     discount_factors_empirical = np.exp(discount_factors_log_empirical)
     impulsivity_score = np.array(data_full_filter['ImpulsivityScore'])
+    self_control = np.array(data_full_filter['SelfControlScore'])
     proc_mean = np.array(data_full_filter['AcadeProcFreq_mean'])
     mucw = np.array(data_relevant.apply(get_mucw, axis=1))
+    mucd = np.array(data_relevant.apply(get_mucd, axis=1))
     completion_week = np.array(
         data_relevant.apply(get_completion_week, axis=1))
 
@@ -339,3 +359,23 @@ if __name__ == "__main__":
     df = pd.DataFrame({'y': y})
     model0 = smf.ols(
         formula='y ~ 1', data=df).fit()
+
+    # %% mediation analysis; why no effect of efficacy and effort on proc_mean
+
+    Pass, Mucw, discount, efficacy, effort = drop_nans(
+        proc_mean, mucw, discount_factors_fitted, efficacy_fitted,
+        efforts_fitted)
+
+    df = pd.DataFrame({'proc_mean': Pass,
+                       'mucw': Mucw,
+                       'discount': discount,
+                       'efficacy': efficacy,
+                       'effort': effort})
+    model1 = smf.ols(formula='mucw ~ proc_mean', data=df).fit()
+    model2 = smf.ols(
+        formula='mucw ~ discount + efficacy + effort', data=df).fit()
+    model3 = smf.ols(
+        formula='mucw ~ discount + efficacy + effort + proc_mean',
+        data=df).fit()
+
+# %%
