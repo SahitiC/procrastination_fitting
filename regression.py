@@ -1,6 +1,4 @@
 # %% imports
-import gen_data
-import constants
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -27,7 +25,7 @@ def integrand(*args):
         Variables of integration. Latent predictors in the regression model.
     y_i : float
         Observed dependent variable.
-    xhat_i : array-like, shape (p,)           
+    xhat_i : array-like, shape (p,)       
         Observed estimates of the predictors with measurement error.
     beta : array-like, shape (p,)
         Regression coefficients.
@@ -158,7 +156,7 @@ def fit_null_regression(y, xhat, sigma_x, bounds, opt_bounds, initial_guess):
     opt_bounds : list of tuples
         Bounds for the optimization parameters.
     initial_guess : array-like, shape (2,), optional
-        Initial guess for the parameters: [intercept, sigma] 
+        Initial guess for the parameters: [intercept, sigma]
     Returns
     -------
     result : OptimizeResult
@@ -191,6 +189,24 @@ def drop_nans(*arrays):
     return tuple(arr[~mask] for arr in arrays)
 
 
+def get_mucd(row):
+    units = np.array(ast.literal_eval(
+        row['delta progress']))*2
+    units_cum = np.array(ast.literal_eval(
+        row['cumulative progress']))*2
+    if np.max(units_cum) > 14:
+        a = np.where(units_cum >= 14)[0][0]
+        arr = units[:a+1]
+        if units_cum[a] > 14:
+            arr[-1] = 14 - units_cum[a-1]
+        mucd = np.sum(arr * np.arange(1, len(arr)+1)) / 14
+        return mucd
+    else:
+        arr = units
+        mucd = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
+        return mucd
+
+
 def get_mucw(row):
     units = np.array(ast.literal_eval(
         row['delta progress weeks']))*2
@@ -206,20 +222,6 @@ def get_mucw(row):
     else:
         arr = units
         mucw = np.sum(arr * np.arange(1, len(arr)+1)) / np.sum(arr)
-        return mucw
-
-
-def get_mucw_simulated(trajectory):
-    if np.max(trajectory) > 14:
-        a = np.where(trajectory >= 14)[0][0]
-        arr = trajectory[:a+1]
-        if arr[-1] > 14:
-            arr[-1] = 14
-        mucw = (14*(len(arr)+1) - np.sum(arr))/14
-        return mucw
-    else:
-        arr = trajectory
-        mucw = (np.max(arr)*(len(arr)+1) - np.sum(arr))/np.max(arr)
         return mucw
 
 
@@ -262,8 +264,10 @@ if __name__ == "__main__":
         data_full_filter['DiscountRate_lnk'])
     discount_factors_empirical = np.exp(discount_factors_log_empirical)
     impulsivity_score = np.array(data_full_filter['ImpulsivityScore'])
+    self_control = np.array(data_full_filter['SelfControlScore'])
     proc_mean = np.array(data_full_filter['AcadeProcFreq_mean'])
     mucw = np.array(data_relevant.apply(get_mucw, axis=1))
+    mucd = np.array(data_relevant.apply(get_mucd, axis=1))
     completion_week = np.array(
         data_relevant.apply(get_completion_week, axis=1))
 
@@ -293,7 +297,7 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(4, 4))
     a = fit_params[:, 0]
-    a = np.where(a == 1, 0.99, a)
+    a = np.where(a == 1, 0.999, a)
     plt.hist(1/(1-a))
 
     # %% variables
@@ -320,7 +324,7 @@ if __name__ == "__main__":
     # %% regressions
 
     y, xhat, hess = drop_nans(
-        time_management, efficacy_fitted, diag_hess[:, 1])
+        self_control, discount_factors_fitted, diag_hess[:, 0])
 
     xhat_reshaped = xhat.reshape(-1, 1)
 
@@ -356,73 +360,23 @@ if __name__ == "__main__":
     model0 = smf.ols(
         formula='y ~ 1', data=df).fit()
 
-# %% multivariate ols regressions
+    # %% mediation analysis; why no effect of efficacy and effort on proc_mean
 
-    y, disc, efficacy, effort = drop_nans(
-        mucw, discount_factors_fitted, efficacy_fitted,
+    Pass, Mucw, discount, efficacy, effort = drop_nans(
+        proc_mean, mucw, discount_factors_fitted, efficacy_fitted,
         efforts_fitted)
 
-    df = pd.DataFrame({'y': y,
-                       'disc': disc,
+    df = pd.DataFrame({'proc_mean': Pass,
+                       'mucw': Mucw,
+                       'discount': discount,
                        'efficacy': efficacy,
                        'effort': effort})
-    model1 = smf.ols(
-        formula='y ~ disc + efficacy + effort', data=df).fit()
-    print(model1.summary())
-
-    model0 = smf.ols(
-        formula='y ~ disc', data=df).fit()
-    print(model0.summary())
-
-    lr_stat, p_value, df_diff = model1.compare_lr_test(model0)
-    print(lr_stat, p_value, df_diff)
-
-    # %%
-
-    y, disc, efficacy, effort = drop_nans(
-        mucw, discount_factors_fitted, efficacy_fitted,
-        efforts_fitted)
-    plt.figure(figsize=(4, 4))
-    plt.scatter(disc, y)
-    plt.xlabel('discount factor')
-    plt.figure(figsize=(4, 4))
-    plt.scatter(efficacy, y)
-    plt.xlabel('efficacy')
-    plt.figure(figsize=(4, 4))
-    plt.scatter(effort, y)
-    plt.xlabel('effort')
-
-    a = disc
-    a = np.where(disc == 1, 0.99, disc)
-    plt.figure(figsize=(4, 4))
-    plt.scatter(1/(1-a), y)
-    plt.xlabel('1/(1-disc)')
-
-    # %% compare with simulated data for these parameters
-    mucw_simulated = []
-    for i in range(len(disc)):
-        data = gen_data.gen_data_basic(
-            constants.STATES, constants.ACTIONS, constants.HORIZON,
-            constants.REWARD_THR, constants.REWARD_EXTRA, constants.REWARD_SHIRK,
-            constants.BETA, disc[i], efficacy[i], effort[i],
-            5, constants.THR, constants.STATES_NO)
-        temp = []
-        for d in data:
-            temp.append(get_mucw_simulated(d))
-        mucw_i = np.nanmean(np.array(temp))
-        mucw_simulated.append(mucw_i)
-    plt.figure(figsize=(4, 4))
-    plt.scatter(disc, mucw_simulated)
-    plt.xlabel('discount factor')
-    plt.figure(figsize=(4, 4))
-    plt.scatter(1/(1-a), mucw_simulated)
-    plt.xlabel('1/(1-disc)')
-    plt.figure(figsize=(4, 4))
-    plt.scatter(efficacy, mucw_simulated)
-    plt.xlabel('eficacy')
-    plt.figure(figsize=(4, 4))
-    plt.scatter(effort, mucw_simulated)
-    plt.xlabel('effort')
+    model1 = smf.ols(formula='mucw ~ proc_mean', data=df).fit()
+    model2 = smf.ols(
+        formula='mucw ~ discount + efficacy + effort', data=df).fit()
+    model3 = smf.ols(
+        formula='mucw ~ discount + efficacy + effort + proc_mean',
+        data=df).fit()
 
 # %%
 from sklearn.cross_decomposition import CCA
