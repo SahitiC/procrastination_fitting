@@ -360,59 +360,41 @@ if __name__ == "__main__":
     model0 = smf.ols(
         formula='y ~ 1', data=df).fit()
 
-    # %% mediation analysis; why no effect of efficacy and effort on proc_mean
+    # %%
+    from sklearn.cross_decomposition import CCA
 
-    Pass, Mucw, discount, efficacy, effort = drop_nans(
-        proc_mean, mucw, discount_factors_fitted, efficacy_fitted,
-        efforts_fitted)
+    df = pd.DataFrame({'pass': proc_mean,
+                       'disc_emp': discount_factors_empirical,
+                       'impulsivity': impulsivity_score,
+                       'self_control': self_control,
+                       'time_man': time_management,
+                       'task_avers': task_aversiveness,
+                       'disc': discount_factors_fitted,
+                       'efficacy': efficacy_fitted,
+                       'effort': efforts_fitted})
 
-    df = pd.DataFrame({'proc_mean': Pass,
-                       'mucw': Mucw,
-                       'discount': discount,
-                       'efficacy': efficacy,
-                       'effort': effort})
-    model1 = smf.ols(formula='mucw ~ proc_mean', data=df).fit()
-    model2 = smf.ols(
-        formula='mucw ~ discount + efficacy + effort', data=df).fit()
-    model3 = smf.ols(
-        formula='mucw ~ discount + efficacy + effort + proc_mean',
-        data=df).fit()
+    df = df.dropna()
+    df = (df-df.mean())/df.std()
 
-# %%
-from sklearn.cross_decomposition import CCA
+    X = df.iloc[:, 0:6]
+    Y = df.iloc[:, 6:9]
 
-df = pd.DataFrame({'pass': proc_mean,
-                  'disc_emp': discount_factors_empirical,
-                  'impulsivity': impulsivity_score,
-                  'self_control': self_control,
-                  'time_man': time_management,
-                  'task_avers': task_aversiveness,
-                  'disc': discount_factors_fitted,
-                  'efficacy': efficacy_fitted,
-                  'effort': efforts_fitted})
+    cca = CCA(n_components=2)
+    cca.fit(X, Y)
+    X_c, Y_c = cca.transform(X, Y)
+    score = cca.score(X, Y)
 
-df = df.dropna()
-df = (df-df.mean())/df.std()
+    plt.figure()
+    plt.scatter(X_c[:, 0], Y_c[:, 0])
+    print(pearsonr(X_c[:, 0], Y_c[:, 0]))
+    plt.figure()
+    plt.scatter(X_c[:, 1], Y_c[:, 1])
+    print(pearsonr(X_c[:, 1], Y_c[:, 1]))
 
-X = df.iloc[:, 0:6]
-Y = df.iloc[:, 6:9]
+    print(cca.x_loadings_)
+    print(cca.y_loadings_)
 
-cca = CCA(n_components=2)
-cca.fit(X, Y)
-X_c, Y_c = cca.transform(X, Y)
-score = cca.score(X, Y)
-
-plt.figure()
-plt.scatter(X_c[:, 0], Y_c[:, 0])
-print(pearsonr(X_c[:, 0], Y_c[:, 0]))
-plt.figure()
-plt.scatter(X_c[:, 1], Y_c[:, 1])
-print(pearsonr(X_c[:, 1], Y_c[:, 1]))
-
-print(cca.x_loadings_)
-print(cca.y_loadings_)
-
-print(cca.x_weights_)
-print(cca.y_weights_)
+    print(cca.x_weights_)
+    print(cca.y_weights_)
 
 # %%
