@@ -1,4 +1,5 @@
 # %% imports
+from sklearn.cross_decomposition import CCA
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -8,6 +9,8 @@ import ast
 import statsmodels.formula.api as smf
 from scipy.stats import pearsonr
 from scipy.stats import chi2
+from statsmodels.stats.mediation import Mediation
+import statsmodels.formula.api as smf
 
 # %% functions
 
@@ -360,7 +363,9 @@ if __name__ == "__main__":
     model0 = smf.ols(
         formula='y ~ 1', data=df).fit()
 
-    # %% mediation analysis; why no effect of efficacy and effort on proc_mean
+    # %% why no effect of efficacy and effort on proc_mean
+    # should we do a mediation analysis - i.e does PASS mediate effect of
+    # disc on mucw
 
     Pass, Mucw, discount, efficacy, effort = drop_nans(
         proc_mean, mucw, discount_factors_fitted, efficacy_fitted,
@@ -377,42 +382,75 @@ if __name__ == "__main__":
     model3 = smf.ols(
         formula='mucw ~ discount + efficacy + effort + proc_mean',
         data=df).fit()
+    model4 = smf.ols(
+        formula='mucw ~ proc_mean + efficacy + effort', data=df).fit()
 
-# %%
-from sklearn.cross_decomposition import CCA
+    # %%
 
-df = pd.DataFrame({'pass': proc_mean,
-                  'disc_emp': discount_factors_empirical,
-                  'impulsivity': impulsivity_score,
-                  'self_control': self_control,
-                  'time_man': time_management,
-                  'task_avers': task_aversiveness,
-                  'disc': discount_factors_fitted,
-                  'efficacy': efficacy_fitted,
-                  'effort': efforts_fitted})
+    df = pd.DataFrame({'pass': proc_mean,
+                       'disc_emp': discount_factors_empirical,
+                       'impulsivity': impulsivity_score,
+                       'self_control': self_control,
+                       'time_man': time_management,
+                       'task_avers': task_aversiveness,
+                       'disc': discount_factors_fitted,
+                       'efficacy': efficacy_fitted,
+                       'effort': efforts_fitted})
 
-df = df.dropna()
-df = (df-df.mean())/df.std()
+    df = df.dropna()
+    df = (df-df.mean())/df.std()
 
-X = df.iloc[:, 0:6]
-Y = df.iloc[:, 6:9]
+    X = df.iloc[:, 0:6]
+    Y = df.iloc[:, 6:9]
 
-cca = CCA(n_components=2)
-cca.fit(X, Y)
-X_c, Y_c = cca.transform(X, Y)
-score = cca.score(X, Y)
+    cca = CCA(n_components=2)
+    cca.fit(X, Y)
+    X_c, Y_c = cca.transform(X, Y)
+    score = cca.score(X, Y)
 
-plt.figure()
-plt.scatter(X_c[:, 0], Y_c[:, 0])
-print(pearsonr(X_c[:, 0], Y_c[:, 0]))
-plt.figure()
-plt.scatter(X_c[:, 1], Y_c[:, 1])
-print(pearsonr(X_c[:, 1], Y_c[:, 1]))
+    plt.figure()
+    plt.scatter(X_c[:, 0], Y_c[:, 0])
+    print(pearsonr(X_c[:, 0], Y_c[:, 0]))
+    plt.figure()
+    plt.scatter(X_c[:, 1], Y_c[:, 1])
+    print(pearsonr(X_c[:, 1], Y_c[:, 1]))
 
-print(cca.x_loadings_)
-print(cca.y_loadings_)
+    print(cca.x_loadings_)
+    print(cca.y_loadings_)
 
-print(cca.x_weights_)
-print(cca.y_weights_)
+    print(cca.x_weights_)
+    print(cca.y_weights_)
 
-# %%
+    # %% mediation analysis
+
+    y, m, disc, effc, efft = drop_nans(
+        mucw, proc_mean, discount_factors_fitted, efficacy_fitted,
+        efforts_fitted)
+
+    df = pd.DataFrame({'y': y,
+                       'm': m,
+                       'disc': disc,
+                       'effc': effc,
+                       'efft': efft})
+
+    model1 = smf.ols(formula='m ~ disc + effc + efft', data=df)
+    model2 = smf.ols(formula='y ~ m + disc + effc + efft', data=df)
+
+    med = Mediation(model2, model1, exposure='disc', mediator='m')
+    med_result = med.fit(n_rep=5000, method='bootstrap')
+    print(med_result.summary())
+
+    # %%
+    y, m, disc = drop_nans(
+        mucw, proc_mean, discount_factors_empirical)
+
+    df = pd.DataFrame({'y': y,
+                       'm': m,
+                       'disc': disc})
+
+    model1 = smf.ols(formula='m ~ disc', data=df)
+    model2 = smf.ols(formula='y ~ m + disc', data=df)
+
+    med = Mediation(model2, model1, exposure='disc', mediator='m')
+    med_result = med.fit(n_rep=5000, method='bootstrap')
+    print(med_result.summary())
