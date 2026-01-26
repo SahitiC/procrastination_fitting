@@ -1,4 +1,5 @@
 # %% imports
+%matplotlib widget
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -137,11 +138,12 @@ time_for_halfpoint = [np.argmin(
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d', elev=20, azim=-45)
 p = ax.scatter(fit_params[:, 2], fit_params[:, 1],
-               fit_params[:, 0], c=time_for_halfpoint, s=60, cmap='viridis')
+               fit_params[:, 0], c=units_completed, s=60, cmap='viridis')
+ax.set_title('units completed')
 ax.set_xlabel('effort')
 ax.set_ylabel('efficacy')
 ax.set_zlabel('discount')
-ax.set_box_aspect(None, zoom=0.8)
+ax.set_box_aspect(None, zoom=0.7)
 fig.colorbar(p)
 plt.show()
 
